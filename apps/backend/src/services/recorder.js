@@ -1,4 +1,4 @@
-import { statSync, existsSync } from "fs";
+import { statSync, existsSync, unlinkSync } from "fs";
 import { getDb } from "../db/client.js";
 import { config } from "../config.js";
 import { spawnProcess, killProcess } from "../utils/subprocess.js";
@@ -25,6 +25,26 @@ function getActualFilePath(basePath) {
   const part = basePath + ".part";
   if (existsSync(part)) return part;
   return basePath;
+}
+
+async function remuxPartFile(partPath, outputPath) {
+  return new Promise((resolve) => {
+    const proc = spawnProcess(config.ffmpegPath, [
+      "-i", partPath,
+      "-c", "copy",
+      "-y",
+      outputPath,
+    ]);
+    proc.stderr.on("data", () => {});
+    proc.on("close", (code) => {
+      if (code === 0) {
+        try { unlinkSync(partPath); } catch {}
+        resolve(true);
+      } else {
+        resolve(false);
+      }
+    });
+  });
 }
 
 function dbUpdateProgress(recordingId, startedAtMs, filePath) {
@@ -105,11 +125,16 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
 
   proc.stderr.on("data", () => {});
 
-  proc.on("close", (code) => {
+  proc.on("close", async (code) => {
     clearInterval(entry.progressInterval);
     active.delete(recordingId);
 
-    const actual = getActualFilePath(filePath);
+    let actual = getActualFilePath(filePath);
+    if (actual.endsWith(".part")) {
+      const remuxed = await remuxPartFile(actual, filePath);
+      if (remuxed) actual = filePath;
+    }
+
     const finalSize = getFileSize(actual);
     const duration = Math.floor((Date.now() - startedAtMs) / 1000);
     const status = entry.cancelled ? "cancelled" : code === 0 ? "completed" : "failed";
