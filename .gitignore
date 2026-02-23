@@ -4,3 +4,6 @@ recordings/
 .claude/
 apps/frontend/dist/
 *.log
+*.db
+*.db-shm
+*.db-wal
