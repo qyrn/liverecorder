@@ -106,11 +106,12 @@ if !ERRORS! GTR 0 (
 
 echo  ─────────────────────────────────────────────────────
 echo  Tout est en ordre. Lancement de LiveRecorder...
-echo  Ouvre http://localhost:3001 dans ton navigateur.
+echo  Le navigateur va s'ouvrir sur http://localhost:3001
 echo  Ferme cette fenetre pour arreter le serveur.
 echo  ─────────────────────────────────────────────────────
 echo.
 
+start "" "http://localhost:3001"
 pnpm start
 if errorlevel 1 (
     echo.

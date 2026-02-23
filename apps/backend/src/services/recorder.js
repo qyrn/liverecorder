@@ -29,21 +29,26 @@ function getActualFilePath(basePath) {
 
 async function remuxPartFile(partPath, outputPath) {
   return new Promise((resolve) => {
-    const proc = spawnProcess(config.ffmpegPath, [
-      "-i", partPath,
-      "-c", "copy",
-      "-y",
-      outputPath,
-    ]);
-    proc.stderr.on("data", () => {});
-    proc.on("close", (code) => {
-      if (code === 0) {
-        try { unlinkSync(partPath); } catch {}
-        resolve(true);
-      } else {
-        resolve(false);
-      }
-    });
+    // Small delay to ensure Windows has released file handles after taskkill
+    setTimeout(() => {
+      const proc = spawnProcess(config.ffmpegPath, [
+        "-i", partPath,
+        "-c", "copy",
+        "-y",
+        outputPath,
+      ]);
+      let errBuf = "";
+      proc.stderr.on("data", (d) => { errBuf += d; });
+      proc.on("close", (code) => {
+        if (code === 0) {
+          try { unlinkSync(partPath); } catch {}
+          resolve(true);
+        } else {
+          console.error("[remux] ffmpeg failed (code %d): %s", code, errBuf.slice(-400));
+          resolve(false);
+        }
+      });
+    }, 1000);
   });
 }
 
