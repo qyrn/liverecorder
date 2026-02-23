@@ -1,4 +1,4 @@
-import { statSync } from "fs";
+import { statSync, existsSync } from "fs";
 import { getDb } from "../db/client.js";
 import { config } from "../config.js";
 import { spawnProcess, killProcess } from "../utils/subprocess.js";
@@ -18,26 +18,24 @@ function getFileSize(filePath) {
   }
 }
 
-function dbUpdateProgress(recordingId, filePath) {
+function getActualFilePath(basePath) {
+  if (existsSync(basePath)) return basePath;
+  const webm = basePath.replace(/\.mp4$/, ".mp4.webm");
+  if (existsSync(webm)) return webm;
+  const part = basePath + ".part";
+  if (existsSync(part)) return part;
+  return basePath;
+}
+
+function dbUpdateProgress(recordingId, startedAtMs, filePath) {
   const db = getDb();
-  const size = getFileSize(filePath);
-  const row = db.prepare("SELECT started_at FROM recordings WHERE id = ?").get(recordingId);
-  if (!row) return;
-  const duration = Math.floor((Date.now() - new Date(row.started_at).getTime()) / 1000);
+  const actual = getActualFilePath(filePath);
+  const size = getFileSize(actual);
+  const duration = Math.floor((Date.now() - startedAtMs) / 1000);
   db.prepare(
     "UPDATE recordings SET file_size_bytes = ?, duration_sec = ? WHERE id = ?"
   ).run(size, duration, recordingId);
   return { file_size_bytes: size, duration_sec: duration };
-}
-
-export function getActiveRecordings() {
-  return Array.from(active.entries()).map(([id, entry]) => ({
-    recordingId: id,
-    streamerId: entry.streamerId,
-    platform: entry.platform,
-    filePath: entry.filePath,
-    startedAt: entry.startedAt,
-  }));
 }
 
 export function isRecording(streamerId) {
@@ -52,25 +50,35 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
     throw new Error("max concurrent recordings reached");
   }
 
+  const startedAtMs = Date.now();
+  const startedAtIso = new Date(startedAtMs).toISOString();
+
   const db = getDb();
   const result = db.prepare(
     `INSERT INTO recordings (streamer_id, platform, stream_title, status, trigger, started_at)
-     VALUES (?, ?, ?, 'recording', ?, datetime('now'))`
-  ).run(streamerId ?? null, platform, streamTitle ?? null, trigger);
+     VALUES (?, ?, ?, 'recording', ?, ?)`
+  ).run(streamerId ?? null, platform, streamTitle ?? null, trigger, startedAtIso);
 
   const recordingId = result.lastInsertRowid;
   const filePath = buildFilepath({ platform, streamerName: streamerName ?? "unknown", recordingId });
 
   db.prepare("UPDATE recordings SET file_path = ? WHERE id = ?").run(filePath, recordingId);
 
+  const isLive = (platform === "twitch" && !streamUrl.includes("/videos/")) || streamUrl.includes("/live");
+
   const args = [
     "--no-colors",
     "--newline",
+    "--merge-output-format", "mp4",
     "--ffmpeg-location", config.ffmpegPath,
     "-o", filePath,
-    streamUrl,
-    "best",
   ];
+
+  if (isLive) {
+    args.push("--live-from-start");
+  }
+
+  args.push(streamUrl);
 
   const proc = spawnProcess(config.ytdlpPath, args);
 
@@ -79,38 +87,38 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
     streamerId,
     platform,
     filePath,
-    startedAt: new Date().toISOString(),
+    startedAtMs,
     progressInterval: null,
     onEnd: null,
+    onProgress: null,
   };
 
   active.set(recordingId, entry);
 
   entry.progressInterval = setInterval(() => {
-    const progress = dbUpdateProgress(recordingId, filePath);
+    const progress = dbUpdateProgress(recordingId, startedAtMs, filePath);
     if (progress) {
       broadcastRecordingProgress(recordingId, progress);
       if (entry.onProgress) entry.onProgress(recordingId, progress);
     }
   }, 2000);
 
+  proc.stderr.on("data", () => {});
+
   proc.on("close", (code) => {
     clearInterval(entry.progressInterval);
     active.delete(recordingId);
 
-    const finalSize = getFileSize(filePath);
-    const rec = db.prepare("SELECT started_at FROM recordings WHERE id = ?").get(recordingId);
-    const duration = rec
-      ? Math.floor((Date.now() - new Date(rec.started_at).getTime()) / 1000)
-      : 0;
-
-    const status = code === 0 ? "completed" : code === null ? "cancelled" : "failed";
+    const actual = getActualFilePath(filePath);
+    const finalSize = getFileSize(actual);
+    const duration = Math.floor((Date.now() - startedAtMs) / 1000);
+    const status = entry.cancelled ? "cancelled" : code === 0 ? "completed" : "failed";
 
     db.prepare(
       `UPDATE recordings
-       SET status = ?, file_size_bytes = ?, duration_sec = ?, ended_at = datetime('now')
+       SET status = ?, file_size_bytes = ?, duration_sec = ?, ended_at = ?, file_path = ?
        WHERE id = ?`
-    ).run(status, finalSize, duration, recordingId);
+    ).run(status, finalSize, duration, new Date().toISOString(), actual, recordingId);
 
     broadcastRecordingEnded(recordingId, { status, file_size_bytes: finalSize, duration_sec: duration });
     if (entry.onEnd) entry.onEnd(recordingId, { status, file_size_bytes: finalSize, duration_sec: duration });
@@ -122,13 +130,9 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
 export async function stopRecording(recordingId) {
   const entry = active.get(recordingId);
   if (!entry) return false;
-
   clearInterval(entry.progressInterval);
-
-  if (entry.proc.pid) {
-    await killProcess(entry.proc.pid);
-  }
-
+  entry.cancelled = true;
+  if (entry.proc.pid) await killProcess(entry.proc.pid);
   return true;
 }
 
@@ -143,6 +147,5 @@ export function onRecordingEnd(recordingId, cb) {
 }
 
 export async function stopAll() {
-  const ids = Array.from(active.keys());
-  await Promise.all(ids.map(stopRecording));
+  await Promise.all(Array.from(active.keys()).map(stopRecording));
 }
