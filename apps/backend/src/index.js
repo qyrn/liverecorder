@@ -1,4 +1,7 @@
 import { createServer } from "http";
+import { existsSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import express from "express";
 import cors from "cors";
@@ -12,7 +15,21 @@ import streamersRouter from "./routes/streamers.js";
 import recordingsRouter from "./routes/recordings.js";
 import settingsRouter from "./routes/settings.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+function checkPrerequisites() {
+  const missing = [];
+  if (!existsSync(config.ytdlpPath)) missing.push(`yt-dlp not found at ${config.ytdlpPath}`);
+  if (!existsSync(config.ffmpegPath)) missing.push(`ffmpeg not found at ${config.ffmpegPath}`);
+  if (missing.length) {
+    console.warn("[startup] Missing tools:");
+    for (const m of missing) console.warn(`  - ${m}`);
+    console.warn("[startup] Recording will not work until these are installed.");
+  }
+}
+
 runMigrations();
+checkPrerequisites();
 
 const app = express();
 app.use(cors());
@@ -22,6 +39,16 @@ app.use("/api/health", healthRouter);
 app.use("/api/streamers", streamersRouter);
 app.use("/api/recordings", recordingsRouter);
 app.use("/api/settings", settingsRouter);
+
+const frontendDist = resolve(__dirname, "../../../frontend/dist");
+if (existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  app.get("*", (req, res) => {
+    if (!req.path.startsWith("/api")) {
+      res.sendFile(resolve(frontendDist, "index.html"));
+    }
+  });
+}
 
 app.use((err, req, res, next) => {
   console.error(err);
@@ -39,7 +66,7 @@ wss.on("connection", (ws) => {
 });
 
 httpServer.listen(config.port, () => {
-  console.log(`Backend running on http://localhost:${config.port}`);
+  console.log(`LiveRecorder running on http://localhost:${config.port}`);
   startMonitor({
     onStarted: (recordingId, meta) => broadcastRecordingStarted(recordingId, meta),
   });
