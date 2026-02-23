@@ -1,35 +1,45 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "../api/client.js";
 
-function formatSize(bytes) {
-  if (!bytes) return "—";
-  const units = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
-}
+const PLATFORM_COLORS = { twitch: "#9147ff", youtube: "#ff0000", tiktok: "#ff0050" };
 
-function formatDuration(sec) {
-  if (!sec) return "—";
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = sec % 60;
-  if (h > 0) return `${h}h ${m.toString().padStart(2, "0")}m`;
-  return `${m}m ${s.toString().padStart(2, "0")}s`;
-}
-
-const statusColors = {
-  recording: "text-red-400",
-  completed: "text-green-400",
-  failed: "text-yellow-400",
-  cancelled: "text-zinc-500",
-  pending: "text-zinc-400",
+const STATUS_STYLES = {
+  recording: { color: "#e63946", label: "REC" },
+  completed: { color: "#22c55e", label: "OK" },
+  failed:    { color: "#f59e0b", label: "ERR" },
+  cancelled: { color: "#3d3d3d", label: "ANN" },
+  pending:   { color: "#555", label: "WAIT" },
 };
 
-const platformColors = {
-  twitch: "text-purple-400",
-  youtube: "text-red-400",
-  tiktok: "text-zinc-400",
-};
+function fmt_size(b) {
+  if (!b) return "—";
+  const u = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(b) / Math.log(1024));
+  return `${(b / Math.pow(1024, i)).toFixed(1)} ${u[i]}`;
+}
+
+function fmt_dur(s) {
+  if (!s) return "—";
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
+  return `${m}m ${String(sec).padStart(2, "0")}s`;
+}
+
+function fmt_date(iso) {
+  if (!iso) return "—";
+  return iso.slice(0, 16).replace("T", " ");
+}
+
+const STATUSES = [
+  { value: "", label: "Tous" },
+  { value: "recording", label: "En cours" },
+  { value: "completed", label: "Terminés" },
+  { value: "failed", label: "Échoués" },
+  { value: "cancelled", label: "Annulés" },
+];
 
 export default function Recordings() {
   const [data, setData] = useState({ rows: [], total: 0 });
@@ -38,90 +48,136 @@ export default function Recordings() {
 
   const load = useCallback(async () => {
     try {
-      const result = await api.recordings.list({
-        page,
-        limit: 50,
-        ...(statusFilter ? { status: statusFilter } : {}),
-      });
+      const result = await api.recordings.list({ page, limit: 50, ...(statusFilter ? { status: statusFilter } : {}) });
       setData(result);
     } catch {}
   }, [page, statusFilter]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold">Bibliothèque</h1>
-        <div className="flex items-center gap-3">
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="px-3 py-1.5 rounded bg-zinc-800 border border-zinc-700 text-sm text-white focus:outline-none"
-          >
-            <option value="">Tous les statuts</option>
-            <option value="recording">En cours</option>
-            <option value="completed">Terminé</option>
-            <option value="failed">Échoué</option>
-            <option value="cancelled">Annulé</option>
-          </select>
-          <span className="text-sm text-zinc-500">{data.total} enregistrement(s)</span>
+    <div style={{ padding: "32px 36px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 28 }}>
+        <div>
+          <h1 style={{ fontFamily: "Syne, sans-serif", fontSize: 22, fontWeight: 700, margin: "0 0 4px", letterSpacing: "-0.01em" }}>
+            Recordings
+          </h1>
+          <p style={{ fontSize: 11, color: "#333", margin: 0 }}>
+            {data.total} enregistrement{data.total !== 1 ? "s" : ""}
+          </p>
+        </div>
+
+        <div style={{ display: "flex", gap: 2 }}>
+          {STATUSES.map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => { setStatusFilter(value); setPage(1); }}
+              style={{
+                padding: "5px 12px",
+                fontSize: 10,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                background: statusFilter === value ? "rgba(255,255,255,0.06)" : "transparent",
+                border: "1px solid",
+                borderColor: statusFilter === value ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.05)",
+                color: statusFilter === value ? "#efefef" : "#444",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                fontFamily: "JetBrains Mono, monospace",
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
       {data.rows.length === 0 ? (
-        <p className="text-center py-20 text-zinc-600">Aucun enregistrement.</p>
+        <div style={{ textAlign: "center", padding: "80px 0" }}>
+          <p style={{ fontSize: 11, color: "#2d2d2d", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            Aucun enregistrement
+          </p>
+        </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="card" style={{ padding: 0, overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
             <thead>
-              <tr className="text-left text-zinc-500 border-b border-zinc-800">
-                <th className="pb-2 pr-4 font-medium">#</th>
-                <th className="pb-2 pr-4 font-medium">Streamer</th>
-                <th className="pb-2 pr-4 font-medium">Plateforme</th>
-                <th className="pb-2 pr-4 font-medium">Titre</th>
-                <th className="pb-2 pr-4 font-medium">Taille</th>
-                <th className="pb-2 pr-4 font-medium">Durée</th>
-                <th className="pb-2 pr-4 font-medium">Statut</th>
-                <th className="pb-2 font-medium">Démarré</th>
+              <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                {["#", "Streamer", "Plateforme", "Titre", "Taille", "Durée", "Statut", "Date"].map((h) => (
+                  <th key={h} style={{
+                    padding: "10px 14px",
+                    textAlign: "left",
+                    fontSize: 9,
+                    color: "#2d2d2d",
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    fontWeight: 400,
+                    whiteSpace: "nowrap",
+                  }}>
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {data.rows.map((r) => (
-                <tr key={r.id} className="border-b border-zinc-800/50 hover:bg-zinc-900/50">
-                  <td className="py-2.5 pr-4 text-zinc-500">{r.id}</td>
-                  <td className="py-2.5 pr-4 font-medium">{r.streamer_name ?? "Manuel"}</td>
-                  <td className={`py-2.5 pr-4 ${platformColors[r.platform]}`}>{r.platform}</td>
-                  <td className="py-2.5 pr-4 text-zinc-400 max-w-xs truncate">{r.stream_title ?? "—"}</td>
-                  <td className="py-2.5 pr-4 text-zinc-400">{formatSize(r.file_size_bytes)}</td>
-                  <td className="py-2.5 pr-4 text-zinc-400">{formatDuration(r.duration_sec)}</td>
-                  <td className={`py-2.5 pr-4 font-medium ${statusColors[r.status]}`}>{r.status}</td>
-                  <td className="py-2.5 text-zinc-500">{r.started_at?.slice(0, 16).replace("T", " ")}</td>
-                </tr>
-              ))}
+              {data.rows.map((r, idx) => {
+                const st = STATUS_STYLES[r.status] ?? STATUS_STYLES.pending;
+                const pc = PLATFORM_COLORS[r.platform];
+                return (
+                  <tr
+                    key={r.id}
+                    className="sweep-in"
+                    style={{
+                      borderBottom: "1px solid rgba(255,255,255,0.03)",
+                      animationDelay: `${idx * 0.02}s`,
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                  >
+                    <td className="tabnum" style={{ padding: "10px 14px", color: "#2d2d2d" }}>{r.id}</td>
+                    <td style={{ padding: "10px 14px", color: "#bbb", whiteSpace: "nowrap" }}>
+                      {r.streamer_name ?? <span style={{ color: "#333" }}>Manuel</span>}
+                    </td>
+                    <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: pc, display: "inline-block" }} />
+                        <span style={{ color: "#555" }}>{r.platform}</span>
+                      </span>
+                    </td>
+                    <td style={{ padding: "10px 14px", color: "#555", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.stream_title ?? "—"}
+                    </td>
+                    <td className="tabnum" style={{ padding: "10px 14px", color: "#777", whiteSpace: "nowrap" }}>{fmt_size(r.file_size_bytes)}</td>
+                    <td className="tabnum" style={{ padding: "10px 14px", color: "#777", whiteSpace: "nowrap" }}>{fmt_dur(r.duration_sec)}</td>
+                    <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
+                      <span style={{
+                        fontSize: 9,
+                        letterSpacing: "0.1em",
+                        padding: "2px 7px",
+                        color: st.color,
+                        background: `${st.color}18`,
+                        display: "inline-block",
+                      }}>
+                        {st.label}
+                      </span>
+                    </td>
+                    <td className="tabnum" style={{ padding: "10px 14px", color: "#3d3d3d", whiteSpace: "nowrap" }}>{fmt_date(r.started_at)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
       {data.total > 50 && (
-        <div className="flex justify-center gap-2 mt-6">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-sm transition-colors"
-          >
-            Précédent
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 20 }}>
+          <button className="btn-ghost" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+            <ChevronLeft size={12} />
           </button>
-          <span className="px-3 py-1.5 text-sm text-zinc-500">Page {page}</span>
-          <button
-            onClick={() => setPage((p) => p + 1)}
-            disabled={data.rows.length < 50}
-            className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-sm transition-colors"
-          >
-            Suivant
+          <span style={{ fontSize: 11, color: "#444" }}>Page {page}</span>
+          <button className="btn-ghost" onClick={() => setPage((p) => p + 1)} disabled={data.rows.length < 50}>
+            <ChevronRight size={12} />
           </button>
         </div>
       )}

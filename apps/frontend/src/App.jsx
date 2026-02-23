@@ -1,12 +1,21 @@
-import React, { useState, useCallback } from "react";
-import { BrowserRouter, NavLink, Routes, Route, Navigate } from "react-router-dom";
+import React, { useState, useCallback, useEffect } from "react";
+import { BrowserRouter, NavLink, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { LayoutGrid, Users, Film, Settings as SettingsIcon, Circle, Loader } from "lucide-react";
 import Dashboard from "./pages/Dashboard.jsx";
 import Streamers from "./pages/Streamers.jsx";
 import Recordings from "./pages/Recordings.jsx";
 import Settings from "./pages/Settings.jsx";
 import { api } from "./api/client.js";
+import { useWebSocket } from "./hooks/useWebSocket.js";
 
-function Header({ onStarted }) {
+const NAV = [
+  { to: "/dashboard", icon: LayoutGrid, label: "Dashboard" },
+  { to: "/streamers", icon: Users, label: "Streamers" },
+  { to: "/recordings", icon: Film, label: "Recordings" },
+  { to: "/settings", icon: SettingsIcon, label: "Settings" },
+];
+
+function Sidebar({ activeCount, onStarted }) {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -27,64 +36,151 @@ function Header({ onStarted }) {
       if (onStarted) onStarted(result.recordingId);
     } catch (err) {
       setError(err.message);
+      setTimeout(() => setError(null), 4000);
     } finally {
       setLoading(false);
     }
   }
 
-  const navClass = ({ isActive }) =>
-    `px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-      isActive
-        ? "bg-white/10 text-white"
-        : "text-white/60 hover:text-white hover:bg-white/5"
-    }`;
-
   return (
-    <header className="flex items-center gap-4 px-6 h-14 bg-zinc-900 border-b border-zinc-800 shrink-0">
-      <span className="font-bold text-white tracking-tight mr-2">LiveRecorder</span>
-      <nav className="flex gap-1">
-        <NavLink to="/dashboard" className={navClass}>Dashboard</NavLink>
-        <NavLink to="/streamers" className={navClass}>Streamers</NavLink>
-        <NavLink to="/recordings" className={navClass}>Recordings</NavLink>
-        <NavLink to="/settings" className={navClass}>Settings</NavLink>
+    <aside
+      style={{
+        width: 220,
+        minWidth: 220,
+        background: "#0a0a0a",
+        borderRight: "1px solid rgba(255,255,255,0.05)",
+        display: "flex",
+        flexDirection: "column",
+        position: "fixed",
+        top: 0,
+        left: 0,
+        bottom: 0,
+        zIndex: 10,
+      }}
+    >
+      <div style={{ padding: "24px 20px 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          {activeCount > 0 && (
+            <span
+              className="rec-blink"
+              style={{ width: 7, height: 7, borderRadius: "50%", background: "#e63946", display: "inline-block", flexShrink: 0 }}
+            />
+          )}
+          <span style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, fontSize: 15, letterSpacing: "0.05em", color: "#efefef" }}>
+            LIVERECORDER
+          </span>
+        </div>
+        {activeCount > 0 ? (
+          <p style={{ fontSize: 10, color: "#e63946", letterSpacing: "0.12em", textTransform: "uppercase", margin: 0, paddingLeft: 15 }}>
+            {activeCount} recording{activeCount > 1 ? "s" : ""}
+          </p>
+        ) : (
+          <p style={{ fontSize: 10, color: "#333", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>
+            idle
+          </p>
+        )}
+      </div>
+
+      <div className="divider" />
+
+      <nav style={{ padding: "8px 0", flex: 1 }}>
+        {NAV.map(({ to, icon: Icon, label }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) => `sidebar-link${isActive ? " active" : ""}`}
+          >
+            <Icon size={13} strokeWidth={1.8} />
+            {label}
+          </NavLink>
+        ))}
       </nav>
-      <form onSubmit={handleStart} className="flex items-center gap-2 ml-auto">
-        <input
-          type="text"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="URL live Twitch / YouTube / TikTok..."
-          className="w-72 px-3 py-1.5 rounded bg-zinc-800 border border-zinc-700 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
-        />
-        <button
-          type="submit"
-          disabled={loading || !url.trim()}
-          className="px-3 py-1.5 rounded bg-red-600 hover:bg-red-500 disabled:opacity-40 text-sm font-medium text-white transition-colors"
-        >
-          {loading ? "..." : "Enregistrer"}
-        </button>
-        {error && <span className="text-red-400 text-xs">{error}</span>}
-      </form>
-    </header>
+
+      <div className="divider" />
+
+      <div style={{ padding: "16px 20px 20px" }}>
+        <p className="section-label" style={{ marginBottom: 8 }}>Enregistrer une URL</p>
+        <form onSubmit={handleStart} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <input
+            className="input-field"
+            type="text"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="twitch.tv/…  youtube.com/…"
+            style={{ fontSize: 11 }}
+          />
+          <button
+            className="btn-rec"
+            type="submit"
+            disabled={loading || !url.trim()}
+            style={{ justifyContent: "center" }}
+          >
+            {loading ? <Loader size={11} className="animate-spin" /> : <Circle size={10} fill="currentColor" />}
+            {loading ? "Lancement..." : "Enregistrer"}
+          </button>
+          {error && (
+            <p style={{ fontSize: 10, color: "#e63946", margin: 0, lineHeight: 1.4 }}>{error}</p>
+          )}
+        </form>
+      </div>
+    </aside>
+  );
+}
+
+function PageWrapper({ children }) {
+  const location = useLocation();
+  return (
+    <div key={location.pathname} className="sweep-in" style={{ height: "100%" }}>
+      {children}
+    </div>
   );
 }
 
 export default function App() {
+  const [activeCount, setActiveCount] = useState(0);
   const [lastStarted, setLastStarted] = useState(null);
 
-  const handleStarted = useCallback((id) => setLastStarted(id), []);
+  const handleMessage = useCallback((msg) => {
+    if (msg.event === "init") {
+      setActiveCount((msg.data.active ?? []).length);
+    } else if (msg.event === "recording:started") {
+      setActiveCount((n) => n + 1);
+    } else if (msg.event === "recording:ended") {
+      setActiveCount((n) => Math.max(0, n - 1));
+    }
+  }, []);
+
+  useWebSocket(handleMessage);
+
+  useEffect(() => {
+    api.recordings.active().then((rows) => setActiveCount(rows.length)).catch(() => {});
+  }, []);
+
+  const handleStarted = useCallback((id) => {
+    setLastStarted(id);
+    setActiveCount((n) => n + 1);
+  }, []);
 
   return (
     <BrowserRouter>
-      <div className="flex flex-col h-screen bg-zinc-950 text-white">
-        <Header onStarted={handleStarted} />
-        <main className="flex-1 overflow-auto">
+      <div className="noise-overlay" />
+      <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+        <Sidebar activeCount={activeCount} onStarted={handleStarted} />
+        <main
+          style={{
+            marginLeft: 220,
+            flex: 1,
+            overflowY: "auto",
+            overflowX: "hidden",
+            background: "#080808",
+          }}
+        >
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard lastStarted={lastStarted} />} />
-            <Route path="/streamers" element={<Streamers />} />
-            <Route path="/recordings" element={<Recordings />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/dashboard" element={<PageWrapper><Dashboard lastStarted={lastStarted} /></PageWrapper>} />
+            <Route path="/streamers" element={<PageWrapper><Streamers /></PageWrapper>} />
+            <Route path="/recordings" element={<PageWrapper><Recordings /></PageWrapper>} />
+            <Route path="/settings" element={<PageWrapper><Settings /></PageWrapper>} />
           </Routes>
         </main>
       </div>

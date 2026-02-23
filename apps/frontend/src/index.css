@@ -1,3 +1,166 @@
+@import "@fontsource/syne/400.css";
+@import "@fontsource/syne/700.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root { color-scheme: dark; }
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: #080808;
+  color: #efefef;
+  font-family: "JetBrains Mono", monospace;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+input, select, button, textarea { font-family: "JetBrains Mono", monospace; }
+
+@keyframes rec-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.rec-blink { animation: rec-blink 1s step-end infinite; }
+
+@keyframes sweep-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sweep-in { animation: sweep-in 0.22s ease both; }
+
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #444;
+  border-left: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  text-decoration: none;
+  cursor: pointer;
+}
+.sidebar-link:hover { color: #888; background: rgba(255,255,255,0.025); }
+.sidebar-link.active { color: #efefef; border-left-color: #e63946; background: rgba(255,255,255,0.04); }
+
+.btn-rec {
+  background: #e63946;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.btn-rec:hover { background: #c1121f; }
+.btn-rec:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.btn-ghost {
+  background: transparent;
+  color: #444;
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 6px 12px;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.btn-ghost:hover { color: #e63946; border-color: rgba(230,57,70,0.35); background: rgba(230,57,70,0.05); }
+.btn-ghost:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.input-field {
+  background: #0d0d0d;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #efefef;
+  padding: 8px 12px;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+  font-family: "JetBrains Mono", monospace;
+}
+.input-field:focus { border-color: rgba(255,255,255,0.2); }
+.input-field::placeholder { color: #2d2d2d; }
+select.input-field { cursor: pointer; }
+
+.card {
+  background: #101010;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.card-rec { border-top: 2px solid #e63946; }
+
+.section-label {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #333;
+}
+
+.divider { height: 1px; background: rgba(255,255,255,0.05); }
+
+.toggle {
+  width: 30px;
+  height: 17px;
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 9px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+}
+.toggle.on { background: #e63946; border-color: #e63946; }
+.toggle::after {
+  content: "";
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  background: #3d3d3d;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s, background 0.2s;
+}
+.toggle.on::after { transform: translateX(13px); background: #fff; }
+
+.tabnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+.status-pill {
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+}
