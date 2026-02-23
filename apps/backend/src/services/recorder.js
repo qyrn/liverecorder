@@ -91,7 +91,16 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
 
   const isLive = (platform === "twitch" && !streamUrl.includes("/videos/")) || streamUrl.includes("/live");
 
-  const cookiesFile = db.prepare("SELECT value FROM settings WHERE key = 'cookies_file'").get()?.value ?? "";
+  const settings = db.prepare("SELECT key, value FROM settings WHERE key IN ('cookies_file', 'quality_preset')").all();
+  const settingsMap = Object.fromEntries(settings.map((r) => [r.key, r.value]));
+  const cookiesFile = settingsMap.cookies_file ?? "";
+  const qualityPreset = settingsMap.quality_preset ?? "source";
+
+  const FORMAT_MAP = {
+    "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
+    "720p":  "bestvideo[height<=720]+bestaudio/best[height<=720]",
+    "480p":  "bestvideo[height<=480]+bestaudio/best[height<=480]",
+  };
 
   const args = [
     "--no-colors",
@@ -100,6 +109,10 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
     "--ffmpeg-location", config.ffmpegPath,
     "-o", filePath,
   ];
+
+  if (FORMAT_MAP[qualityPreset]) {
+    args.push("-f", FORMAT_MAP[qualityPreset]);
+  }
 
   if (cookiesFile && existsSync(cookiesFile)) {
     args.push("--cookies", cookiesFile);

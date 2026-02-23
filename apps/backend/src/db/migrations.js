@@ -47,6 +47,7 @@ export function runMigrations() {
     ["twitch_client_secret", ""],
     ["youtube_api_key", ""],
     ["cookies_file", ""],
+    ["quality_preset", "source"],
   ];
 
   const upsert = db.prepare(

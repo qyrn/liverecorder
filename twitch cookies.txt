@@ -1,0 +1,19 @@
+# Netscape HTTP Cookie File
+# https://curl.haxx.se/rfc/cookie_spec.html
+# This is a generated file! Do not edit.
+
+.twitch.tv	TRUE	/	TRUE	1805827260	unique_id_durable	qdTF44G2af1waXe64PkqwcDazTJAaYAs
+.twitch.tv	TRUE	/	TRUE	1805827260	unique_id	qdTF44G2af1waXe64PkqwcDazTJAaYAs
+.twitch.tv	TRUE	/	TRUE	1801436886	experiment_overrides	{%22experiments%22:{}%2C%22disabled%22:[]}
+.twitch.tv	TRUE	/	TRUE	1782776872	spare_key	eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3Bhc3Nwb3J0LnR3aXRjaC50diIsInN1YiI6IltcIjI2NDI1NjEzNlwiXSIsImF1ZCI6ImJydXRlLWZvcmNlLXByb3RlY3Rpb24iLCJleHAiOjE3ODI3NzY4NzMsImlhdCI6MTc2NzIyNDg3Mywibm9uY2UiOiJ4Sl93VGptem5YYWFaT1o2SEVSRGdjNW9sRzZ2UGlHRDBsUmsxSklxMzRZPSJ9.z0RPvbf8PrzLYDFSlgZzgsXv4XgtKU7uFQDD5zQ9A4SENw6hWv9ce3479tYdOSlfaF-wrXipCArrwyLE2Go1dQ%3D%3D
+.twitch.tv	TRUE	/	TRUE	1798674472	persistent	264256136%3A%3Awledzvh43hh4q5d0y9cqa6h0yuhf14
+.twitch.tv	TRUE	/	TRUE	1805827262	login	puceau2002
+.twitch.tv	TRUE	/	FALSE	1798674472	name	puceau2002
+.twitch.tv	TRUE	/	FALSE	1798674472	last_login	2025-12-31T23:47:53Z
+.twitch.tv	TRUE	/	TRUE	1805827262	twilight-user	{%22authToken%22:%22unyf9k7ofrg1b57atc0u90tnk61ybi%22%2C%22displayName%22:%22puceau2002%22%2C%22id%22:%22264256136%22%2C%22login%22:%22puceau2002%22%2C%22roles%22:{%22isStaff%22:false}%2C%22version%22:2}
+.twitch.tv	TRUE	/	TRUE	1805827262	auth-token	unyf9k7ofrg1b57atc0u90tnk61ybi
+.twitch.tv	TRUE	/	FALSE	1805568064	twitch.lohp.countryCode	FR
+.twitch.tv	TRUE	/	TRUE	1801911405	api_token	twilight.6fc15cbbb32763d492a3a5f82a8deb8b
+.twitch.tv	TRUE	/	TRUE	1805772128	twilight-user.dev	{%22authToken%22:%22xcgoqguecui56j0xpr16kwbejtl1hy%22%2C%22displayName%22:%22puceau2002%22%2C%22id%22:%22264256136%22%2C%22login%22:%22puceau2002%22%2C%22roles%22:{%22isStaff%22:false}%2C%22version%22:2}
+.twitch.tv	TRUE	/	TRUE	1800748186	language	fr-FR
+.twitch.tv	TRUE	/	TRUE	0	server_session_id	29b8118fa06547e0b984e6ee166855ba

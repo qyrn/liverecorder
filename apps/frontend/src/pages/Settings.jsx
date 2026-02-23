@@ -17,14 +17,30 @@ const SECTIONS = [
       { key: "ytdlp_path",      label: "yt-dlp",      type: "text" },
       { key: "ffmpeg_path",     label: "ffmpeg",      type: "text" },
       { key: "streamlink_path", label: "streamlink",  type: "text" },
-      { key: "cookies_file",    label: "Cookies Twitch (.txt)", type: "text" },
+      {
+        key: "cookies_file",
+        label: "Fichier cookies (.txt)",
+        type: "text",
+        hint: "Sub-only Twitch, membres YouTube, contenu âge restreint. Exporte via l'extension « Get cookies.txt LOCALLY ».",
+      },
     ],
   },
   {
     label: "Enregistrement",
     fields: [
-      { key: "output_path",    label: "Dossier de sortie",       type: "text" },
+      { key: "output_path",    label: "Dossier de sortie",          type: "text" },
       { key: "max_concurrent", label: "Enregistrements simultanés", type: "number" },
+      {
+        key: "quality_preset",
+        label: "Qualité max",
+        type: "select",
+        options: [
+          { value: "source", label: "Source — meilleure qualité" },
+          { value: "1080p",  label: "1080p — ~30-40% plus petit" },
+          { value: "720p",   label: "720p — ~60% plus petit" },
+          { value: "480p",   label: "480p — ~80% plus petit" },
+        ],
+      },
     ],
   },
   {
@@ -114,16 +130,34 @@ export default function Settings() {
           <div key={label} className="card" style={{ padding: "16px" }}>
             <p className="section-label" style={{ marginBottom: 14 }}>{label}</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {fields.map(({ key, label: fieldLabel, type }) => (
-                <div key={key} style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                  <label style={{ width: 200, fontSize: 11, color: "#555", flexShrink: 0 }}>{fieldLabel}</label>
-                  <input
-                    className="input-field"
-                    type={type}
-                    value={values[key] ?? ""}
-                    onChange={(e) => handleChange(key, e.target.value)}
-                    style={{ fontSize: 11 }}
-                  />
+              {fields.map(({ key, label: fieldLabel, type, options, hint }) => (
+                <div key={key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    <label style={{ width: 200, fontSize: 11, color: "#555", flexShrink: 0 }}>{fieldLabel}</label>
+                    {type === "select" ? (
+                      <select
+                        className="input-field"
+                        value={values[key] ?? ""}
+                        onChange={(e) => handleChange(key, e.target.value)}
+                        style={{ fontSize: 11 }}
+                      >
+                        {options.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        className="input-field"
+                        type={type}
+                        value={values[key] ?? ""}
+                        onChange={(e) => handleChange(key, e.target.value)}
+                        style={{ fontSize: 11 }}
+                      />
+                    )}
+                  </div>
+                  {hint && (
+                    <p style={{ margin: "0 0 0 216px", fontSize: 10, color: "#333", lineHeight: 1.4 }}>{hint}</p>
+                  )}
                 </div>
               ))}
             </div>
