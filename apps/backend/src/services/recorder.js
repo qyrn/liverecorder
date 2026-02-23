@@ -85,11 +85,13 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
   ).run(streamerId ?? null, platform, streamTitle ?? null, trigger, startedAtIso);
 
   const recordingId = result.lastInsertRowid;
-  const filePath = buildFilepath({ platform, streamerName: streamerName ?? "unknown", recordingId });
+  const filePath = buildFilepath({ platform, streamerName: streamerName ?? "unknown", streamTitle, recordingId });
 
   db.prepare("UPDATE recordings SET file_path = ? WHERE id = ?").run(filePath, recordingId);
 
   const isLive = (platform === "twitch" && !streamUrl.includes("/videos/")) || streamUrl.includes("/live");
+
+  const cookiesFile = db.prepare("SELECT value FROM settings WHERE key = 'cookies_file'").get()?.value ?? "";
 
   const args = [
     "--no-colors",
@@ -98,6 +100,10 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
     "--ffmpeg-location", config.ffmpegPath,
     "-o", filePath,
   ];
+
+  if (cookiesFile && existsSync(cookiesFile)) {
+    args.push("--cookies", cookiesFile);
+  }
 
   if (isLive) {
     args.push("--live-from-start");
@@ -128,7 +134,8 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
     }
   }, 2000);
 
-  proc.stderr.on("data", () => {});
+  let stderrBuf = "";
+  proc.stderr.on("data", (d) => { stderrBuf += d; });
 
   proc.on("close", async (code) => {
     clearInterval(entry.progressInterval);
@@ -143,6 +150,10 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
     const finalSize = getFileSize(actual);
     const duration = Math.floor((Date.now() - startedAtMs) / 1000);
     const status = entry.cancelled ? "cancelled" : code === 0 ? "completed" : "failed";
+    if (status === "failed") {
+      const errSnippet = stderrBuf.split("\n").filter((l) => l.startsWith("ERROR:")).join(" | ").slice(0, 300);
+      console.error(`[recorder] #${recordingId} failed: ${errSnippet || "(no error output)"}`);
+    }
 
     db.prepare(
       `UPDATE recordings

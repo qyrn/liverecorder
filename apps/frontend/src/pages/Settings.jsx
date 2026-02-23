@@ -17,6 +17,7 @@ const SECTIONS = [
       { key: "ytdlp_path",      label: "yt-dlp",      type: "text" },
       { key: "ffmpeg_path",     label: "ffmpeg",      type: "text" },
       { key: "streamlink_path", label: "streamlink",  type: "text" },
+      { key: "cookies_file",    label: "Cookies Twitch (.txt)", type: "text" },
     ],
   },
   {
