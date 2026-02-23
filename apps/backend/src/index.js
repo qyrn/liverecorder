@@ -1,9 +1,12 @@
+import { createServer } from "http";
+import { WebSocketServer } from "ws";
 import express from "express";
 import cors from "cors";
 import { config } from "./config.js";
 import { runMigrations } from "./db/migrations.js";
 import { stopAll } from "./services/recorder.js";
 import { startMonitor, stopMonitor } from "./services/monitor.js";
+import { setBroadcasterWss, sendInit, broadcastRecordingStarted } from "./services/broadcaster.js";
 import healthRouter from "./routes/health.js";
 import streamersRouter from "./routes/streamers.js";
 import recordingsRouter from "./routes/recordings.js";
@@ -12,7 +15,6 @@ import settingsRouter from "./routes/settings.js";
 runMigrations();
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
@@ -26,14 +28,26 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message });
 });
 
-const server = app.listen(config.port, () => {
+const httpServer = createServer(app);
+const wss = new WebSocketServer({ server: httpServer });
+
+setBroadcasterWss(wss);
+
+wss.on("connection", (ws) => {
+  sendInit(ws);
+  ws.on("error", () => {});
+});
+
+httpServer.listen(config.port, () => {
   console.log(`Backend running on http://localhost:${config.port}`);
-  startMonitor();
+  startMonitor({
+    onStarted: (recordingId, meta) => broadcastRecordingStarted(recordingId, meta),
+  });
 });
 
 process.on("SIGINT", async () => {
   console.log("Shutting down — stopping active recordings...");
   stopMonitor();
   await stopAll();
-  server.close(() => process.exit(0));
+  httpServer.close(() => process.exit(0));
 });

@@ -3,6 +3,10 @@ import { getDb } from "../db/client.js";
 import { config } from "../config.js";
 import { spawnProcess, killProcess } from "../utils/subprocess.js";
 import { buildFilepath } from "../utils/filename.js";
+import {
+  broadcastRecordingProgress,
+  broadcastRecordingEnded,
+} from "./broadcaster.js";
 
 const active = new Map();
 
@@ -84,8 +88,9 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
 
   entry.progressInterval = setInterval(() => {
     const progress = dbUpdateProgress(recordingId, filePath);
-    if (entry.onProgress && progress) {
-      entry.onProgress(recordingId, progress);
+    if (progress) {
+      broadcastRecordingProgress(recordingId, progress);
+      if (entry.onProgress) entry.onProgress(recordingId, progress);
     }
   }, 2000);
 
@@ -107,9 +112,8 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
        WHERE id = ?`
     ).run(status, finalSize, duration, recordingId);
 
-    if (entry.onEnd) {
-      entry.onEnd(recordingId, { status, file_size_bytes: finalSize, duration_sec: duration });
-    }
+    broadcastRecordingEnded(recordingId, { status, file_size_bytes: finalSize, duration_sec: duration });
+    if (entry.onEnd) entry.onEnd(recordingId, { status, file_size_bytes: finalSize, duration_sec: duration });
   });
 
   return recordingId;
