@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getDb } from "../db/client.js";
-import { startRecording, stopRecording } from "../services/recorder.js";
+import { startDownload, stopDownload } from "../services/recorder.js";
 
 const router = Router();
 
@@ -11,11 +11,11 @@ router.get("/", (req, res) => {
   const params = [];
 
   if (status) {
-    conditions.push("r.status = ?");
+    conditions.push("status = ?");
     params.push(status);
   }
   if (platform) {
-    conditions.push("r.platform = ?");
+    conditions.push("platform = ?");
     params.push(platform);
   }
 
@@ -24,17 +24,15 @@ router.get("/", (req, res) => {
 
   const rows = db
     .prepare(
-      `SELECT r.*, s.name as streamer_name
-       FROM recordings r
-       LEFT JOIN streamers s ON r.streamer_id = s.id
+      `SELECT * FROM recordings
        ${where}
-       ORDER BY r.started_at DESC
+       ORDER BY started_at DESC
        LIMIT ? OFFSET ?`
     )
     .all(...params, parseInt(limit), offset);
 
   const total = db
-    .prepare(`SELECT COUNT(*) as count FROM recordings r ${where}`)
+    .prepare(`SELECT COUNT(*) as count FROM recordings ${where}`)
     .get(...params).count;
 
   res.json({ rows, total, page: parseInt(page), limit: parseInt(limit) });
@@ -43,31 +41,18 @@ router.get("/", (req, res) => {
 router.get("/active", (req, res) => {
   const db = getDb();
   const rows = db
-    .prepare(
-      `SELECT r.*, s.name as streamer_name
-       FROM recordings r
-       LEFT JOIN streamers s ON r.streamer_id = s.id
-       WHERE r.status = 'recording'
-       ORDER BY r.started_at DESC`
-    )
+    .prepare("SELECT * FROM recordings WHERE status = 'recording' ORDER BY started_at DESC")
     .all();
   res.json(rows);
 });
 
 router.post("/start", async (req, res) => {
-  const { url, platform, streamTitle, streamerName, streamerId } = req.body;
-  if (!url || !platform) {
-    return res.status(400).json({ error: "url and platform required" });
+  const { url, qualityPreset } = req.body;
+  if (!url) {
+    return res.status(400).json({ error: "url required" });
   }
   try {
-    const recordingId = await startRecording({
-      streamerId: streamerId ?? null,
-      platform,
-      streamUrl: url,
-      streamTitle: streamTitle ?? null,
-      streamerName: streamerName ?? null,
-      trigger: "manual",
-    });
+    const recordingId = await startDownload({ url: url.trim(), qualityPreset: qualityPreset ?? null });
     res.status(201).json({ recordingId });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -76,14 +61,7 @@ router.post("/start", async (req, res) => {
 
 router.get("/:id", (req, res) => {
   const db = getDb();
-  const row = db
-    .prepare(
-      `SELECT r.*, s.name as streamer_name
-       FROM recordings r
-       LEFT JOIN streamers s ON r.streamer_id = s.id
-       WHERE r.id = ?`
-    )
-    .get(req.params.id);
+  const row = db.prepare("SELECT * FROM recordings WHERE id = ?").get(req.params.id);
   if (!row) return res.status(404).json({ error: "not found" });
   res.json(row);
 });
@@ -95,7 +73,7 @@ router.post("/:id/cancel", async (req, res) => {
   if (row.status !== "recording") {
     return res.status(400).json({ error: "recording is not active" });
   }
-  const stopped = await stopRecording(parseInt(req.params.id));
+  const stopped = await stopDownload(parseInt(req.params.id));
   if (!stopped) {
     return res.status(400).json({ error: "process not found in active map" });
   }

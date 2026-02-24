@@ -25,18 +25,8 @@ export const config = {
   ytdlpPath: process.env.YTDLP_PATH || "C:/yt-dlp/yt-dlp.exe",
   ffmpegPath: process.env.FFMPEG_PATH || "C:/ffmpeg/bin/ffmpeg.exe",
   streamlinkPath: process.env.STREAMLINK_PATH || "streamlink",
-  twitch: {
-    clientId: process.env.TWITCH_CLIENT_ID || "",
-    clientSecret: process.env.TWITCH_CLIENT_SECRET || "",
-  },
-  youtube: {
-    apiKey: process.env.YOUTUBE_API_KEY || "",
-  },
-  poll: {
-    twitch: parseInt(process.env.POLL_INTERVAL_TWITCH || "60", 10),
-    youtube: parseInt(process.env.POLL_INTERVAL_YOUTUBE || "300", 10),
-    tiktok: parseInt(process.env.POLL_INTERVAL_TIKTOK || "120", 10),
-  },
   maxConcurrent: parseInt(process.env.MAX_CONCURRENT || "3", 10),
+  hlsConcurrency: parseInt(process.env.HLS_CONCURRENCY || "16", 10),
+  ytdlpConcurrentFragments: parseInt(process.env.YTDLP_CONCURRENT_FRAGMENTS || "4", 10),
   dbPath: resolve(root, "liverecorder.db"),
 };

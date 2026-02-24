@@ -31,12 +31,7 @@ export function broadcastRecordingEnded(recordingId, finalData) {
 export function sendInit(ws) {
   const db = getDb();
   const active = db
-    .prepare(
-      `SELECT r.*, s.name as streamer_name
-       FROM recordings r
-       LEFT JOIN streamers s ON r.streamer_id = s.id
-       WHERE r.status = 'recording'`
-    )
+    .prepare("SELECT * FROM recordings WHERE status = 'recording'")
     .all();
   ws.send(JSON.stringify({ event: "init", data: { active } }));
 }

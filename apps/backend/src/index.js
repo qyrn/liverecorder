@@ -8,10 +8,8 @@ import cors from "cors";
 import { config } from "./config.js";
 import { runMigrations } from "./db/migrations.js";
 import { stopAll } from "./services/recorder.js";
-import { startMonitor, stopMonitor } from "./services/monitor.js";
-import { setBroadcasterWss, sendInit, broadcastRecordingStarted } from "./services/broadcaster.js";
+import { setBroadcasterWss, sendInit } from "./services/broadcaster.js";
 import healthRouter from "./routes/health.js";
-import streamersRouter from "./routes/streamers.js";
 import recordingsRouter from "./routes/recordings.js";
 import settingsRouter from "./routes/settings.js";
 
@@ -36,7 +34,6 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/health", healthRouter);
-app.use("/api/streamers", streamersRouter);
 app.use("/api/recordings", recordingsRouter);
 app.use("/api/settings", settingsRouter);
 
@@ -67,14 +64,10 @@ wss.on("connection", (ws) => {
 
 httpServer.listen(config.port, () => {
   console.log(`LiveRecorder running on http://localhost:${config.port}`);
-  startMonitor({
-    onStarted: (recordingId, meta) => broadcastRecordingStarted(recordingId, meta),
-  });
 });
 
 process.on("SIGINT", async () => {
-  console.log("Shutting down — stopping active recordings...");
-  stopMonitor();
+  console.log("Shutting down — stopping active downloads...");
   await stopAll();
   httpServer.close(() => process.exit(0));
 });

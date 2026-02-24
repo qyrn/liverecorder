@@ -23,13 +23,7 @@ router.get("/", async (req, res) => {
     checkTool(config.streamlinkPath, ["--version"]),
   ]);
 
-  res.json({
-    ytdlp,
-    ffmpeg,
-    streamlink,
-    twitch: { configured: !!(config.twitch.clientId && config.twitch.clientSecret) },
-    youtube: { configured: !!config.youtube.apiKey },
-  });
+  res.json({ ytdlp, ffmpeg, streamlink });
 });
 
 export default router;

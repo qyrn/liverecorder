@@ -11,13 +11,6 @@ import {
   broadcastRecordingEnded,
 } from "./broadcaster.js";
 
-// Nombre de workers parallèles pour les VODs HLS (bypass CloudFront).
-// Benchmark : 16 workers = optimal (34 MB/s vs 7.5 MB/s en séquentiel).
-const HLS_CONCURRENCY = parseInt(process.env.HLS_CONCURRENCY || "16", 10);
-
-// Fragments concurrents pour yt-dlp (VODs non-bypass).
-const YTDLP_CONCURRENT_FRAGMENTS = parseInt(process.env.YTDLP_CONCURRENT_FRAGMENTS || "4", 10);
-
 const active = new Map();
 
 function getFileSize(filePath) {
@@ -85,11 +78,7 @@ function dbUpdateProgress(recordingId, startedAtMs, filePath) {
   return { file_size_bytes: size, duration_sec: duration };
 }
 
-/**
- * Finalise un enregistrement dans la DB et notifie les clients.
- * Commun aux deux modes : process (yt-dlp/ffmpeg) et downloader HLS parallèle.
- */
-async function handleRecordingClose(recordingId, exitCode, stderrBuf) {
+async function handleDownloadClose(recordingId, exitCode, stderrBuf) {
   const entry = active.get(recordingId);
   if (!entry) return;
 
@@ -101,10 +90,8 @@ async function handleRecordingClose(recordingId, exitCode, stderrBuf) {
   let actual = getActualFilePath(filePath);
   if (actual.endsWith(".part")) {
     if (!cancelled && exitCode === 0) {
-      // ffmpeg terminé proprement : renommer .part → .mp4
       try { renameSync(actual, filePath); actual = filePath; } catch {}
     } else {
-      // Interrompu ou échoué : tenter un remux
       const remuxed = await remuxPartFile(actual, filePath);
       if (remuxed) actual = filePath;
     }
@@ -130,49 +117,46 @@ async function handleRecordingClose(recordingId, exitCode, stderrBuf) {
   ).run(status, finalSize, duration, new Date().toISOString(), actual, recordingId);
 
   broadcastRecordingEnded(recordingId, { status, file_size_bytes: finalSize, duration_sec: duration });
-  if (entry.onEnd) entry.onEnd(recordingId, { status, file_size_bytes: finalSize, duration_sec: duration });
 }
 
-export function isRecording(streamerId) {
-  for (const entry of active.values()) {
-    if (entry.streamerId === streamerId) return true;
-  }
-  return false;
+function detectPlatform(url) {
+  if (url.includes("twitch.tv")) return "twitch";
+  if (url.includes("tiktok.com")) return "tiktok";
+  return "youtube";
 }
 
-export async function startRecording({ streamerId, platform, streamUrl, streamTitle, trigger = "auto", streamerName }) {
+export async function startDownload({ url, qualityPreset: qpOverride } = {}) {
   if (active.size >= config.maxConcurrent) {
-    throw new Error("max concurrent recordings reached");
+    throw new Error("max concurrent downloads reached");
   }
 
   const startedAtMs = Date.now();
   const startedAtIso = new Date(startedAtMs).toISOString();
 
   const db = getDb();
-
-  const isLive = (platform === "twitch" && !streamUrl.includes("/videos/")) || streamUrl.includes("/live");
+  const platform = detectPlatform(url);
 
   const settings = db.prepare("SELECT key, value FROM settings WHERE key IN ('cookies_file', 'quality_preset')").all();
   const settingsMap = Object.fromEntries(settings.map((r) => [r.key, r.value]));
   const cookiesFile = settingsMap.cookies_file ?? "";
-  const qualityPreset = settingsMap.quality_preset ?? "source";
+  const qualityPreset = qpOverride ?? settingsMap.quality_preset ?? "source";
 
-  let effectiveUrl = streamUrl;
-  let resolvedTitle = streamTitle ?? null;
-  let resolvedStreamer = streamerName ?? "unknown";
+  let effectiveUrl = url;
+  let resolvedTitle = null;
+  let resolvedStreamer = "unknown";
   let bypassUsed = false;
 
-  if (!isLive && platform === "twitch") {
-    const vodId = extractVODId(streamUrl);
+  if (platform === "twitch") {
+    const vodId = extractVODId(url);
     if (vodId) {
       try {
         const bypass = await getTwitchVODDirectUrl(vodId, qualityPreset);
         effectiveUrl = bypass.url;
-        if (!resolvedTitle && bypass.title) resolvedTitle = bypass.title;
-        if (resolvedStreamer === "unknown" && bypass.channelLogin) resolvedStreamer = bypass.channelLogin;
+        if (bypass.title) resolvedTitle = bypass.title;
+        if (bypass.channelLogin) resolvedStreamer = bypass.channelLogin;
         bypassUsed = true;
         console.log(
-          `[bypass] VOD ${vodId} (${resolvedStreamer}) → ${bypass.url.split("/").slice(0, 5).join("/")}/... [${HLS_CONCURRENCY} workers]`
+          `[bypass] VOD ${vodId} (${resolvedStreamer}) → ${bypass.url.split("/").slice(0, 5).join("/")}/... [${config.hlsConcurrency} workers]`
         );
       } catch (err) {
         console.warn(`[bypass] ${err.message} — fallback yt-dlp natif`);
@@ -181,9 +165,9 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
   }
 
   const result = db.prepare(
-    `INSERT INTO recordings (streamer_id, platform, stream_title, status, trigger, started_at)
-     VALUES (?, ?, ?, 'recording', ?, ?)`
-  ).run(streamerId ?? null, platform, resolvedTitle, trigger, startedAtIso);
+    `INSERT INTO recordings (platform, stream_title, status, started_at)
+     VALUES (?, ?, 'recording', ?)`
+  ).run(platform, resolvedTitle, startedAtIso);
 
   const recordingId = result.lastInsertRowid;
   const filePath = buildFilepath({ platform, streamerName: resolvedStreamer, streamTitle: resolvedTitle, recordingId });
@@ -197,15 +181,12 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
   };
 
   const entry = {
-    streamerId,
     platform,
     filePath,
     startedAtMs,
     progressInterval: null,
-    onEnd: null,
-    onProgress: null,
     proc: null,
-    abortCtrl: null,  // AbortController pour le downloader HLS parallèle
+    abortCtrl: null,
     cancelled: false,
   };
 
@@ -215,35 +196,36 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
     const progress = dbUpdateProgress(recordingId, startedAtMs, filePath);
     if (progress) {
       broadcastRecordingProgress(recordingId, progress);
-      if (entry.onProgress) entry.onProgress(recordingId, progress);
     }
   }, 2000);
 
   if (bypassUsed) {
-    // Téléchargeur HLS parallèle : segments TS téléchargés concurremment puis fusionnés.
-    // Évite les stalls de ffmpeg/yt-dlp en mode séquentiel sur CloudFront Twitch.
     const ac = new AbortController();
     entry.abortCtrl = ac;
 
     downloadHLSParallel(effectiveUrl, filePath, {
-      concurrency: HLS_CONCURRENCY,
+      concurrency: config.hlsConcurrency,
       signal: ac.signal,
       onProgress: ({ done, total, percent }) => {
         if (done % 50 === 0 || done === total) {
           console.log(`[hls] #${recordingId} ${percent}% (${done}/${total} segments)`);
         }
+        broadcastRecordingProgress(recordingId, {
+          file_size_bytes: getFileSize(getActualFilePath(filePath)),
+          duration_sec: Math.floor((Date.now() - startedAtMs) / 1000),
+          percent,
+        });
       },
     })
-      .then(() => handleRecordingClose(recordingId, 0, ""))
+      .then(() => handleDownloadClose(recordingId, 0, ""))
       .catch((err) => {
         if (err.cancelled) {
-          handleRecordingClose(recordingId, 0, "");
+          handleDownloadClose(recordingId, 0, "");
         } else {
-          handleRecordingClose(recordingId, 1, err.message ?? "");
+          handleDownloadClose(recordingId, 1, err.message ?? "");
         }
       });
   } else {
-    // yt-dlp : --concurrent-fragments pour paralléliser le téléchargement des fragments HLS.
     const args = [
       "--no-colors",
       "--newline",
@@ -254,7 +236,7 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
       "--fragment-retries", "5",
       "--skip-unavailable-fragments",
       "--socket-timeout", "30",
-      "--concurrent-fragments", String(YTDLP_CONCURRENT_FRAGMENTS),
+      "--concurrent-fragments", String(config.ytdlpConcurrentFragments),
     ];
 
     if (FORMAT_MAP[qualityPreset]) {
@@ -265,22 +247,18 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
       args.push("--cookies", cookiesFile);
     }
 
-    if (isLive) {
-      args.push("--live-from-start");
-    }
-
     args.push(effectiveUrl);
     entry.proc = spawnProcess(config.ytdlpPath, args);
 
     let stderrBuf = "";
     entry.proc.stderr.on("data", (d) => { stderrBuf += d; });
-    entry.proc.on("close", (code) => handleRecordingClose(recordingId, code, stderrBuf));
+    entry.proc.on("close", (code) => handleDownloadClose(recordingId, code, stderrBuf));
   }
 
   return recordingId;
 }
 
-export async function stopRecording(recordingId) {
+export async function stopDownload(recordingId) {
   const entry = active.get(recordingId);
   if (!entry) return false;
   clearInterval(entry.progressInterval);
@@ -295,16 +273,6 @@ export async function stopRecording(recordingId) {
   return true;
 }
 
-export function onRecordingProgress(recordingId, cb) {
-  const entry = active.get(recordingId);
-  if (entry) entry.onProgress = cb;
-}
-
-export function onRecordingEnd(recordingId, cb) {
-  const entry = active.get(recordingId);
-  if (entry) entry.onEnd = cb;
-}
-
 export async function stopAll() {
-  await Promise.all(Array.from(active.keys()).map(stopRecording));
+  await Promise.all(Array.from(active.keys()).map(stopDownload));
 }
