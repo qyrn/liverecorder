@@ -3,6 +3,7 @@ import { getDb } from "../db/client.js";
 import { config } from "../config.js";
 import { spawnProcess, killProcess } from "../utils/subprocess.js";
 import { buildFilepath } from "../utils/filename.js";
+import { getTwitchVODDirectUrl, extractVODId } from "../utils/twitch-vod-bypass.js";
 import {
   broadcastRecordingProgress,
   broadcastRecordingEnded,
@@ -79,15 +80,6 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
   const startedAtIso = new Date(startedAtMs).toISOString();
 
   const db = getDb();
-  const result = db.prepare(
-    `INSERT INTO recordings (streamer_id, platform, stream_title, status, trigger, started_at)
-     VALUES (?, ?, ?, 'recording', ?, ?)`
-  ).run(streamerId ?? null, platform, streamTitle ?? null, trigger, startedAtIso);
-
-  const recordingId = result.lastInsertRowid;
-  const filePath = buildFilepath({ platform, streamerName: streamerName ?? "unknown", streamTitle, recordingId });
-
-  db.prepare("UPDATE recordings SET file_path = ? WHERE id = ?").run(filePath, recordingId);
 
   const isLive = (platform === "twitch" && !streamUrl.includes("/videos/")) || streamUrl.includes("/live");
 
@@ -95,6 +87,38 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
   const settingsMap = Object.fromEntries(settings.map((r) => [r.key, r.value]));
   const cookiesFile = settingsMap.cookies_file ?? "";
   const qualityPreset = settingsMap.quality_preset ?? "source";
+
+  // For Twitch VODs: bypass subscriber restriction by reconstructing the direct CloudFront URL
+  let effectiveUrl = streamUrl;
+  let resolvedTitle = streamTitle ?? null;
+  let resolvedStreamer = streamerName ?? "unknown";
+  let bypassUsed = false;
+
+  if (!isLive && platform === "twitch") {
+    const vodId = extractVODId(streamUrl);
+    if (vodId) {
+      try {
+        const bypass = await getTwitchVODDirectUrl(vodId, qualityPreset);
+        effectiveUrl = bypass.url;
+        if (!resolvedTitle && bypass.title) resolvedTitle = bypass.title;
+        if (resolvedStreamer === "unknown" && bypass.channelLogin) resolvedStreamer = bypass.channelLogin;
+        bypassUsed = true;
+        console.log(`[bypass] VOD ${vodId} (${resolvedStreamer}) → ${bypass.url.split("/").slice(0, 5).join("/")}/...`);
+      } catch (err) {
+        console.warn(`[bypass] ${err.message} — falling back to yt-dlp native`);
+      }
+    }
+  }
+
+  const result = db.prepare(
+    `INSERT INTO recordings (streamer_id, platform, stream_title, status, trigger, started_at)
+     VALUES (?, ?, ?, 'recording', ?, ?)`
+  ).run(streamerId ?? null, platform, resolvedTitle, trigger, startedAtIso);
+
+  const recordingId = result.lastInsertRowid;
+  const filePath = buildFilepath({ platform, streamerName: resolvedStreamer, streamTitle: resolvedTitle, recordingId });
+
+  db.prepare("UPDATE recordings SET file_path = ? WHERE id = ?").run(filePath, recordingId);
 
   const FORMAT_MAP = {
     "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
@@ -110,7 +134,8 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
     "-o", filePath,
   ];
 
-  if (FORMAT_MAP[qualityPreset]) {
+  // Quality selection only applies when bypass is not used (bypass already chose the resolution)
+  if (!bypassUsed && FORMAT_MAP[qualityPreset]) {
     args.push("-f", FORMAT_MAP[qualityPreset]);
   }
 
@@ -122,7 +147,7 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
     args.push("--live-from-start");
   }
 
-  args.push(streamUrl);
+  args.push(effectiveUrl);
 
   const proc = spawnProcess(config.ytdlpPath, args);
 

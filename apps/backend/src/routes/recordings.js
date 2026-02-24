@@ -65,7 +65,7 @@ router.post("/start", async (req, res) => {
       platform,
       streamUrl: url,
       streamTitle: streamTitle ?? null,
-      streamerName: streamerName ?? "manual",
+      streamerName: streamerName ?? null,
       trigger: "manual",
     });
     res.status(201).json({ recordingId });
