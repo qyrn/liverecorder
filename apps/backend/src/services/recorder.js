@@ -1,4 +1,5 @@
-import { statSync, existsSync, unlinkSync } from "fs";
+import { statSync, existsSync, unlinkSync, readdirSync } from "fs";
+import { basename, dirname } from "path";
 import { getDb } from "../db/client.js";
 import { config } from "../config.js";
 import { spawnProcess, killProcess } from "../utils/subprocess.js";
@@ -51,6 +52,18 @@ async function remuxPartFile(partPath, outputPath) {
       });
     }, 1000);
   });
+}
+
+function cleanResidualFiles(filePath) {
+  try {
+    const dir = dirname(filePath);
+    const base = basename(filePath);
+    for (const f of readdirSync(dir)) {
+      if (f.startsWith(base + ".") || f.startsWith(base + "-")) {
+        try { unlinkSync(`${dir}/${f}`); } catch {}
+      }
+    }
+  } catch {}
 }
 
 function dbUpdateProgress(recordingId, startedAtMs, filePath) {
@@ -184,6 +197,8 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
       const remuxed = await remuxPartFile(actual, filePath);
       if (remuxed) actual = filePath;
     }
+
+    cleanResidualFiles(filePath);
 
     const finalSize = getFileSize(actual);
     const duration = Math.floor((Date.now() - startedAtMs) / 1000);
