@@ -34,10 +34,10 @@ if errorlevel 1 (
     for /f "tokens=*" %%v in ('node --version') do echo  [OK]         Node.js %%v
 )
 
-pnpm --version > nul 2>&1
+call pnpm --version > nul 2>&1
 if errorlevel 1 (
     echo  [AUTO]       pnpm absent - installation en cours...
-    npm install -g pnpm > nul 2>&1
+    call npm install -g pnpm > nul 2>&1
     if errorlevel 1 (
         echo  [ERREUR]     Impossible d'installer pnpm automatiquement.
         echo               Lance manuellement : npm install -g pnpm
@@ -173,7 +173,7 @@ echo.
 
 if not exist "node_modules" (
     echo  Installation des paquets ^(premiere fois uniquement^)...
-    pnpm install
+    call pnpm install
     if errorlevel 1 (
         echo.
         echo  [ERREUR]     pnpm install a echoue.
@@ -199,7 +199,7 @@ if exist ".port" del ".port"
 
 start /B powershell -NoProfile -Command "while (-not (Test-Path '.port')) { Start-Sleep -Milliseconds 500 }; $p = (Get-Content '.port').Trim(); Start-Process ('http://localhost:' + $p)"
 
-pnpm start
+call pnpm start
 set SERVER_EXIT=!errorlevel!
 echo.
 echo  =====================================================
