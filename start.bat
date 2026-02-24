@@ -197,10 +197,7 @@ echo.
 
 if exist ".port" del ".port"
 
-start /B powershell -NoProfile -Command ^
-  "while (-not (Test-Path '.port')) { Start-Sleep -Milliseconds 500 }; ^
-  $p = (Get-Content '.port').Trim(); ^
-  Start-Process ('http://localhost:' + $p)"
+start /B powershell -NoProfile -Command "while (-not (Test-Path '.port')) { Start-Sleep -Milliseconds 500 }; $p = (Get-Content '.port').Trim(); Start-Process ('http://localhost:' + $p)"
 
 pnpm start
 set /a EXIT_CODE=!errorlevel!
@@ -211,7 +208,8 @@ if !EXIT_CODE! NEQ 0 (
     echo  Le serveur s'est arrete.
 )
 echo  Appuie sur une touche pour fermer cette fenetre.
-pause > nul
+pause
+goto :eof
 
 :fatal
 echo.
