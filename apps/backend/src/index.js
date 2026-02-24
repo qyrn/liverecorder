@@ -47,7 +47,7 @@ app.use("/api/health", healthRouter);
 app.use("/api/recordings", recordingsRouter);
 app.use("/api/settings", settingsRouter);
 
-const frontendDist = resolve(__dirname, "../../../frontend/dist");
+const frontendDist = resolve(__dirname, "../../frontend/dist");
 if (existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
   app.get("*", (req, res) => {
