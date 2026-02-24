@@ -7,7 +7,7 @@ setlocal enabledelayedexpansion
 :: Activer les couleurs ANSI (Windows 10+)
 :: ----------------------------------------------------------------
 reg add HKCU\Console /v VirtualTerminalLevel /t REG_DWORD /d 1 /f > nul 2>&1
-for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
+for /F "tokens=*" %%a in ('powershell -NoProfile -Command "[char]27"') do set "ESC=%%a"
 
 set "R=!ESC![0m"
 set "BOLD=!ESC![1m"
