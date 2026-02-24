@@ -33,6 +33,11 @@ input, select, button, textarea { font-family: "JetBrains Mono", monospace; }
 }
 .rec-blink { animation: rec-blink 1s step-end infinite; }
 
+@keyframes progress-indeterminate {
+  0%   { left: -30%; }
+  100% { left: 100%; }
+}
+
 @keyframes sweep-in {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }

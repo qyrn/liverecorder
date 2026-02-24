@@ -17,13 +17,6 @@ async function request(method, path, body) {
 export const api = {
   health: () => request("GET", "/health"),
 
-  streamers: {
-    list: () => request("GET", "/streamers"),
-    create: (data) => request("POST", "/streamers", data),
-    update: (id, data) => request("PATCH", `/streamers/${id}`, data),
-    remove: (id) => request("DELETE", `/streamers/${id}`),
-  },
-
   recordings: {
     list: (params = {}) => {
       const qs = new URLSearchParams(params).toString();

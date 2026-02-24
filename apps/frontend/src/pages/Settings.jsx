@@ -1,16 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Save } from "lucide-react";
+import { X, Save } from "lucide-react";
 import { api } from "../api/client.js";
 
 const SECTIONS = [
-  {
-    label: "Clés API",
-    fields: [
-      { key: "twitch_client_id",     label: "Twitch Client ID",     type: "text" },
-      { key: "twitch_client_secret", label: "Twitch Client Secret", type: "password" },
-      { key: "youtube_api_key",      label: "YouTube API Key",       type: "password" },
-    ],
-  },
   {
     label: "Chemins outils",
     fields: [
@@ -21,15 +13,14 @@ const SECTIONS = [
         key: "cookies_file",
         label: "Fichier cookies (.txt)",
         type: "text",
-        hint: "Sub-only Twitch, membres YouTube, contenu âge restreint. Exporte via l'extension « Get cookies.txt LOCALLY ».",
+        hint: "Sub-only Twitch, membres YouTube, contenu âge restreint. Exporte via « Get cookies.txt LOCALLY ».",
       },
     ],
   },
   {
-    label: "Enregistrement",
+    label: "Téléchargement",
     fields: [
-      { key: "output_path",    label: "Dossier de sortie",          type: "text" },
-      { key: "max_concurrent", label: "Enregistrements simultanés", type: "number" },
+      { key: "output_path", label: "Dossier de sortie", type: "text" },
       {
         key: "quality_preset",
         label: "Qualité max",
@@ -43,25 +34,15 @@ const SECTIONS = [
       },
     ],
   },
-  {
-    label: "Intervalles de polling (secondes)",
-    fields: [
-      { key: "poll_interval_twitch",  label: "Twitch",  type: "number" },
-      { key: "poll_interval_youtube", label: "YouTube", type: "number" },
-      { key: "poll_interval_tiktok",  label: "TikTok",  type: "number" },
-    ],
-  },
 ];
 
 const TOOLS = [
-  { key: "ytdlp",     label: "yt-dlp" },
-  { key: "ffmpeg",    label: "ffmpeg" },
-  { key: "streamlink",label: "streamlink" },
-  { key: "twitch",    label: "Twitch API", isConfigured: true },
-  { key: "youtube",   label: "YouTube API", isConfigured: true },
+  { key: "ytdlp",      label: "yt-dlp" },
+  { key: "ffmpeg",     label: "ffmpeg" },
+  { key: "streamlink", label: "streamlink" },
 ];
 
-export default function Settings() {
+export default function SettingsPanel({ onClose }) {
   const [values, setValues] = useState({});
   const [health, setHealth] = useState(null);
   const [saved, setSaved] = useState(false);
@@ -89,90 +70,138 @@ export default function Settings() {
   }
 
   return (
-    <div style={{ padding: "32px 36px", maxWidth: 680 }}>
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontFamily: "Syne, sans-serif", fontSize: 22, fontWeight: 700, margin: "0 0 4px", letterSpacing: "-0.01em" }}>
-          Settings
-        </h1>
-        <p style={{ fontSize: 11, color: "#333", margin: 0 }}>
-          Configuration des outils et des clés API
-        </p>
-      </div>
-
-      {health && (
-        <div className="card" style={{ padding: "14px 16px", marginBottom: 24 }}>
-          <p className="section-label" style={{ marginBottom: 12 }}>État des outils</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-            {TOOLS.map(({ key, label, isConfigured }) => {
-              const ok = isConfigured ? health[key]?.configured : health[key]?.ok;
-              return (
-                <div key={key} style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                  <span style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: ok ? "#22c55e" : "#e63946",
-                    display: "inline-block",
-                    flexShrink: 0,
-                  }} />
-                  <span style={{ fontSize: 10, color: ok ? "#aaa" : "#555", letterSpacing: "0.04em" }}>
-                    {label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        {SECTIONS.map(({ label, fields }) => (
-          <div key={label} className="card" style={{ padding: "16px" }}>
-            <p className="section-label" style={{ marginBottom: 14 }}>{label}</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {fields.map(({ key, label: fieldLabel, type, options, hint }) => (
-                <div key={key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                    <label style={{ width: 200, fontSize: 11, color: "#555", flexShrink: 0 }}>{fieldLabel}</label>
-                    {type === "select" ? (
-                      <select
-                        className="input-field"
-                        value={values[key] ?? ""}
-                        onChange={(e) => handleChange(key, e.target.value)}
-                        style={{ fontSize: 11 }}
-                      >
-                        {options.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        className="input-field"
-                        type={type}
-                        value={values[key] ?? ""}
-                        onChange={(e) => handleChange(key, e.target.value)}
-                        style={{ fontSize: 11 }}
-                      />
-                    )}
-                  </div>
-                  {hint && (
-                    <p style={{ margin: "0 0 0 216px", fontSize: 10, color: "#333", lineHeight: 1.4 }}>{hint}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button className="btn-rec" type="submit">
-            <Save size={11} />
-            Sauvegarder
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.7)",
+        zIndex: 100,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        style={{
+          background: "#0d0d0d",
+          border: "1px solid rgba(255,255,255,0.08)",
+          width: "100%",
+          maxWidth: 560,
+          maxHeight: "85vh",
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "18px 20px",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          position: "sticky",
+          top: 0,
+          background: "#0d0d0d",
+          zIndex: 1,
+        }}>
+          <span style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: "0.02em" }}>
+            Paramètres
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#555",
+              cursor: "pointer",
+              padding: 4,
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <X size={14} />
           </button>
-          {saved && <span style={{ fontSize: 10, color: "#22c55e", letterSpacing: "0.08em" }}>Sauvegardé.</span>}
-          {error && <span style={{ fontSize: 10, color: "#e63946" }}>{error}</span>}
         </div>
-      </form>
+
+        <div style={{ padding: "20px" }}>
+          {health && (
+            <div className="card" style={{ padding: "12px 14px", marginBottom: 20 }}>
+              <p className="section-label" style={{ marginBottom: 10 }}>État des outils</p>
+              <div style={{ display: "flex", gap: 20 }}>
+                {TOOLS.map(({ key, label }) => {
+                  const ok = health[key]?.ok;
+                  return (
+                    <div key={key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        background: ok ? "#22c55e" : "#e63946",
+                        display: "inline-block",
+                        flexShrink: 0,
+                      }} />
+                      <span style={{ fontSize: 10, color: ok ? "#aaa" : "#555", letterSpacing: "0.04em" }}>
+                        {label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {SECTIONS.map(({ label, fields }) => (
+              <div key={label} className="card" style={{ padding: "14px" }}>
+                <p className="section-label" style={{ marginBottom: 12 }}>{label}</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {fields.map(({ key, label: fieldLabel, type, options, hint }) => (
+                    <div key={key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <label style={{ width: 180, fontSize: 11, color: "#555", flexShrink: 0 }}>{fieldLabel}</label>
+                        {type === "select" ? (
+                          <select
+                            className="input-field"
+                            value={values[key] ?? ""}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            style={{ fontSize: 11 }}
+                          >
+                            {options.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            className="input-field"
+                            type={type}
+                            value={values[key] ?? ""}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            style={{ fontSize: 11 }}
+                          />
+                        )}
+                      </div>
+                      {hint && (
+                        <p style={{ margin: "0 0 0 192px", fontSize: 10, color: "#333", lineHeight: 1.4 }}>{hint}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <button className="btn-rec" type="submit">
+                <Save size={11} />
+                Sauvegarder
+              </button>
+              {saved && <span style={{ fontSize: 10, color: "#22c55e", letterSpacing: "0.08em" }}>Sauvegardé.</span>}
+              {error && <span style={{ fontSize: 10, color: "#e63946" }}>{error}</span>}
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }
