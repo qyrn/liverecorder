@@ -7,6 +7,7 @@ import express from "express";
 import cors from "cors";
 import { config } from "./config.js";
 import { runMigrations } from "./db/migrations.js";
+import { getDb } from "./db/client.js";
 import { stopAll } from "./services/recorder.js";
 import { setBroadcasterWss, sendInit } from "./services/broadcaster.js";
 import healthRouter from "./routes/health.js";
@@ -16,13 +17,21 @@ import settingsRouter from "./routes/settings.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function checkPrerequisites() {
+  const db = getDb();
+  const rows = db.prepare(
+    "SELECT key, value FROM settings WHERE key IN ('ytdlp_path', 'ffmpeg_path')"
+  ).all();
+  const m = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const ytdlpPath  = m.ytdlp_path  || "C:/yt-dlp/yt-dlp.exe";
+  const ffmpegPath = m.ffmpeg_path || "C:/ffmpeg/bin/ffmpeg.exe";
+
   const missing = [];
-  if (!existsSync(config.ytdlpPath)) missing.push(`yt-dlp not found at ${config.ytdlpPath}`);
-  if (!existsSync(config.ffmpegPath)) missing.push(`ffmpeg not found at ${config.ffmpegPath}`);
+  if (!existsSync(ytdlpPath))  missing.push(`yt-dlp not found at ${ytdlpPath}`);
+  if (!existsSync(ffmpegPath)) missing.push(`ffmpeg not found at ${ffmpegPath}`);
   if (missing.length) {
     console.warn("[startup] Missing tools:");
     for (const m of missing) console.warn(`  - ${m}`);
-    console.warn("[startup] Recording will not work until these are installed.");
+    console.warn("[startup] Configure tool paths in Settings.");
   }
 }
 

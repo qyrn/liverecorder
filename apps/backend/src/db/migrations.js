@@ -29,6 +29,9 @@ export function runMigrations() {
     ["streamlink_path", "streamlink"],
     ["cookies_file", ""],
     ["quality_preset", "source"],
+    ["max_concurrent", "3"],
+    ["hls_concurrency", "16"],
+    ["ytdlp_concurrent_fragments", "4"],
   ];
 
   const upsert = db.prepare(

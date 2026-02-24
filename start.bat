@@ -33,40 +33,6 @@ if errorlevel 1 (
     for /f "tokens=*" %%v in ('pnpm --version') do echo  [OK]  pnpm %%v
 )
 
-if not exist ".env" (
-    echo  [MANQUANT]  Fichier .env introuvable
-    echo              Copie .env.example vers .env et configure tes chemins
-    set /a ERRORS+=1
-    goto :check_deps
-)
-echo  [OK]  Fichier .env present
-
-:: Lire YTDLP_PATH et FFMPEG_PATH depuis .env avec fallback
-set YTDLP_PATH_CHECK=C:\yt-dlp\yt-dlp.exe
-set FFMPEG_PATH_CHECK=C:\ffmpeg\bin\ffmpeg.exe
-
-for /f "usebackq tokens=1,* delims==" %%a in (".env") do (
-    if "%%a"=="YTDLP_PATH" if not "%%b"=="" set YTDLP_PATH_CHECK=%%b
-    if "%%a"=="FFMPEG_PATH" if not "%%b"=="" set FFMPEG_PATH_CHECK=%%b
-)
-
-if not exist "!YTDLP_PATH_CHECK!" (
-    echo  [MANQUANT]  yt-dlp non trouve a !YTDLP_PATH_CHECK!
-    echo              Telecharge-le ici : https://github.com/yt-dlp/yt-dlp/releases
-    set /a ERRORS+=1
-) else (
-    for /f "tokens=*" %%v in ('"!YTDLP_PATH_CHECK!" --version 2^>nul') do echo  [OK]  yt-dlp %%v
-)
-
-if not exist "!FFMPEG_PATH_CHECK!" (
-    echo  [MANQUANT]  ffmpeg non trouve a !FFMPEG_PATH_CHECK!
-    echo              Telecharge-le ici : https://ffmpeg.org/download.html
-    set /a ERRORS+=1
-) else (
-    echo  [OK]  ffmpeg trouve
-)
-
-:check_deps
 if not exist "node_modules" (
     echo.
     echo  Installation des dependances...
@@ -94,6 +60,7 @@ if !ERRORS! GTR 0 (
 echo  ─────────────────────────────────────────────────────
 echo  Tout est en ordre. Lancement de LiveRecorder...
 echo  Le navigateur va s'ouvrir sur http://localhost:3001
+echo  Configure les chemins outils dans l'interface (Parametres).
 echo  Ferme cette fenetre pour arreter le serveur.
 echo  ─────────────────────────────────────────────────────
 echo.

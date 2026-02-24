@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { config } from "../config.js";
+import { getDb } from "../db/client.js";
 
 const execFileAsync = promisify(execFile);
 const router = Router();
@@ -17,10 +17,20 @@ async function checkTool(path, args) {
 }
 
 router.get("/", async (req, res) => {
+  const db = getDb();
+  const rows = db.prepare(
+    "SELECT key, value FROM settings WHERE key IN ('ytdlp_path', 'ffmpeg_path', 'streamlink_path')"
+  ).all();
+  const m = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+
+  const ytdlpPath     = m.ytdlp_path || "C:/yt-dlp/yt-dlp.exe";
+  const ffmpegPath    = m.ffmpeg_path || "C:/ffmpeg/bin/ffmpeg.exe";
+  const streamlinkPath = m.streamlink_path || "streamlink";
+
   const [ytdlp, ffmpeg, streamlink] = await Promise.all([
-    checkTool(config.ytdlpPath, ["--version"]),
-    checkTool(config.ffmpegPath, ["-version"]),
-    checkTool(config.streamlinkPath, ["--version"]),
+    checkTool(ytdlpPath, ["--version"]),
+    checkTool(ffmpegPath, ["-version"]),
+    checkTool(streamlinkPath, ["--version"]),
   ]);
 
   res.json({ ytdlp, ffmpeg, streamlink });

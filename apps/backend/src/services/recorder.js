@@ -1,7 +1,6 @@
 import { statSync, existsSync, unlinkSync, readdirSync, renameSync } from "fs";
 import { basename, dirname } from "path";
 import { getDb } from "../db/client.js";
-import { config } from "../config.js";
 import { spawnProcess, killProcess } from "../utils/subprocess.js";
 import { buildFilepath } from "../utils/filename.js";
 import { getTwitchVODDirectUrl, extractVODId } from "../utils/twitch-vod-bypass.js";
@@ -30,11 +29,31 @@ function getActualFilePath(basePath) {
   return basePath;
 }
 
-async function remuxPartFile(partPath, outputPath) {
+function getSettings() {
+  const db = getDb();
+  const rows = db.prepare(
+    `SELECT key, value FROM settings WHERE key IN (
+      'cookies_file', 'quality_preset', 'ytdlp_path', 'ffmpeg_path',
+      'max_concurrent', 'hls_concurrency', 'ytdlp_concurrent_fragments'
+    )`
+  ).all();
+  const m = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  return {
+    cookiesFile:               m.cookies_file ?? "",
+    qualityPreset:             m.quality_preset ?? "source",
+    ytdlpPath:                 m.ytdlp_path || "C:/yt-dlp/yt-dlp.exe",
+    ffmpegPath:                m.ffmpeg_path || "C:/ffmpeg/bin/ffmpeg.exe",
+    maxConcurrent:             parseInt(m.max_concurrent || "3", 10),
+    hlsConcurrency:            parseInt(m.hls_concurrency || "16", 10),
+    ytdlpConcurrentFragments:  parseInt(m.ytdlp_concurrent_fragments || "4", 10),
+  };
+}
+
+async function remuxPartFile(partPath, outputPath, ffmpegPath) {
   return new Promise((resolve) => {
     // Petit délai pour que Windows libère les handles de fichier après taskkill
     setTimeout(() => {
-      const proc = spawnProcess(config.ffmpegPath, [
+      const proc = spawnProcess(ffmpegPath, [
         "-i", partPath,
         "-c", "copy",
         "-y",
@@ -78,7 +97,7 @@ function dbUpdateProgress(recordingId, startedAtMs, filePath) {
   return { file_size_bytes: size, duration_sec: duration };
 }
 
-async function handleDownloadClose(recordingId, exitCode, stderrBuf) {
+async function handleDownloadClose(recordingId, exitCode, stderrBuf, ffmpegPath) {
   const entry = active.get(recordingId);
   if (!entry) return;
 
@@ -92,7 +111,7 @@ async function handleDownloadClose(recordingId, exitCode, stderrBuf) {
     if (!cancelled && exitCode === 0) {
       try { renameSync(actual, filePath); actual = filePath; } catch {}
     } else {
-      const remuxed = await remuxPartFile(actual, filePath);
+      const remuxed = await remuxPartFile(actual, filePath, ffmpegPath);
       if (remuxed) actual = filePath;
     }
   }
@@ -126,20 +145,17 @@ function detectPlatform(url) {
 }
 
 export async function startDownload({ url, qualityPreset: qpOverride } = {}) {
-  if (active.size >= config.maxConcurrent) {
+  const s = getSettings();
+
+  if (active.size >= s.maxConcurrent) {
     throw new Error("max concurrent downloads reached");
   }
 
   const startedAtMs = Date.now();
   const startedAtIso = new Date(startedAtMs).toISOString();
-
   const db = getDb();
   const platform = detectPlatform(url);
-
-  const settings = db.prepare("SELECT key, value FROM settings WHERE key IN ('cookies_file', 'quality_preset')").all();
-  const settingsMap = Object.fromEntries(settings.map((r) => [r.key, r.value]));
-  const cookiesFile = settingsMap.cookies_file ?? "";
-  const qualityPreset = qpOverride ?? settingsMap.quality_preset ?? "source";
+  const qualityPreset = qpOverride ?? s.qualityPreset;
 
   let effectiveUrl = url;
   let resolvedTitle = null;
@@ -156,7 +172,7 @@ export async function startDownload({ url, qualityPreset: qpOverride } = {}) {
         if (bypass.channelLogin) resolvedStreamer = bypass.channelLogin;
         bypassUsed = true;
         console.log(
-          `[bypass] VOD ${vodId} (${resolvedStreamer}) → ${bypass.url.split("/").slice(0, 5).join("/")}/... [${config.hlsConcurrency} workers]`
+          `[bypass] VOD ${vodId} (${resolvedStreamer}) → ${bypass.url.split("/").slice(0, 5).join("/")}/... [${s.hlsConcurrency} workers]`
         );
       } catch (err) {
         console.warn(`[bypass] ${err.message} — fallback yt-dlp natif`);
@@ -194,9 +210,7 @@ export async function startDownload({ url, qualityPreset: qpOverride } = {}) {
 
   entry.progressInterval = setInterval(() => {
     const progress = dbUpdateProgress(recordingId, startedAtMs, filePath);
-    if (progress) {
-      broadcastRecordingProgress(recordingId, progress);
-    }
+    if (progress) broadcastRecordingProgress(recordingId, progress);
   }, 2000);
 
   if (bypassUsed) {
@@ -204,7 +218,7 @@ export async function startDownload({ url, qualityPreset: qpOverride } = {}) {
     entry.abortCtrl = ac;
 
     downloadHLSParallel(effectiveUrl, filePath, {
-      concurrency: config.hlsConcurrency,
+      concurrency: s.hlsConcurrency,
       signal: ac.signal,
       onProgress: ({ done, total, percent }) => {
         if (done % 50 === 0 || done === total) {
@@ -217,12 +231,12 @@ export async function startDownload({ url, qualityPreset: qpOverride } = {}) {
         });
       },
     })
-      .then(() => handleDownloadClose(recordingId, 0, ""))
+      .then(() => handleDownloadClose(recordingId, 0, "", s.ffmpegPath))
       .catch((err) => {
         if (err.cancelled) {
-          handleDownloadClose(recordingId, 0, "");
+          handleDownloadClose(recordingId, 0, "", s.ffmpegPath);
         } else {
-          handleDownloadClose(recordingId, 1, err.message ?? "");
+          handleDownloadClose(recordingId, 1, err.message ?? "", s.ffmpegPath);
         }
       });
   } else {
@@ -230,29 +244,29 @@ export async function startDownload({ url, qualityPreset: qpOverride } = {}) {
       "--no-colors",
       "--newline",
       "--merge-output-format", "mp4",
-      "--ffmpeg-location", config.ffmpegPath,
+      "--ffmpeg-location", s.ffmpegPath,
       "-o", filePath,
       "--retries", "5",
       "--fragment-retries", "5",
       "--skip-unavailable-fragments",
       "--socket-timeout", "30",
-      "--concurrent-fragments", String(config.ytdlpConcurrentFragments),
+      "--concurrent-fragments", String(s.ytdlpConcurrentFragments),
     ];
 
     if (FORMAT_MAP[qualityPreset]) {
       args.push("-f", FORMAT_MAP[qualityPreset]);
     }
 
-    if (cookiesFile && existsSync(cookiesFile)) {
-      args.push("--cookies", cookiesFile);
+    if (s.cookiesFile && existsSync(s.cookiesFile)) {
+      args.push("--cookies", s.cookiesFile);
     }
 
     args.push(effectiveUrl);
-    entry.proc = spawnProcess(config.ytdlpPath, args);
+    entry.proc = spawnProcess(s.ytdlpPath, args);
 
     let stderrBuf = "";
     entry.proc.stderr.on("data", (d) => { stderrBuf += d; });
-    entry.proc.on("close", (code) => handleDownloadClose(recordingId, code, stderrBuf));
+    entry.proc.on("close", (code) => handleDownloadClose(recordingId, code, stderrBuf, s.ffmpegPath));
   }
 
   return recordingId;

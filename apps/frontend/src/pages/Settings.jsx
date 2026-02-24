@@ -32,6 +32,29 @@ const SECTIONS = [
           { value: "480p",   label: "480p — ~80% plus petit" },
         ],
       },
+      {
+        key: "max_concurrent",
+        label: "Téléchargements simultanés",
+        type: "number",
+        hint: "Nombre maximum de téléchargements en parallèle.",
+      },
+    ],
+  },
+  {
+    label: "Avancé",
+    fields: [
+      {
+        key: "hls_concurrency",
+        label: "Workers HLS",
+        type: "number",
+        hint: "Segments téléchargés en parallèle pour les VODs Twitch (bypass CloudFront). Défaut : 16.",
+      },
+      {
+        key: "ytdlp_concurrent_fragments",
+        label: "Fragments yt-dlp",
+        type: "number",
+        hint: "Fragments simultanés pour yt-dlp (YouTube, TikTok, etc.). Défaut : 4.",
+      },
     ],
   },
 ];
