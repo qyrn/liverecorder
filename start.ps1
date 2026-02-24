@@ -101,7 +101,7 @@ if (-not (Ask "Continuer / Continue ?")) {
 }
 
 # ================================================================
-# ETAPE 1 — PREREQUIS
+# ETAPE 1 - PREREQUIS
 # ================================================================
 Clear-Host
 Section "Etape 1 / 3   Prerequis systeme  /  System requirements"
@@ -131,7 +131,7 @@ if ($LASTEXITCODE -ne 0) {
 if ($errors -gt 0) { Die "$errors probleme(s) detecte(s). Corrige et relance. / Fix and retry." }
 
 # ================================================================
-# ETAPE 2 — OUTILS
+# ETAPE 2 - OUTILS
 # ================================================================
 Blank
 Section "Etape 2 / 3   Outils de telechargement  /  Download tools"
@@ -213,7 +213,7 @@ if ($missingYtdlp -or $missingFfmpeg) {
 }
 
 # ================================================================
-# ETAPE 3 — DEPENDANCES
+# ETAPE 3 - DEPENDANCES
 # ================================================================
 Clear-Host
 Section "Etape 3 / 3   Dependances Node.js  /  Node.js dependencies"
@@ -259,7 +259,7 @@ if ($conn) {
         Stop-Process -Id $conn.OwningProcess -Force
         Write-Host "   Instance precedente arretee. / Previous instance stopped." -ForegroundColor DarkGray
     } elseif ($proc) {
-        Write-Host "   Port 3000 utilise par : $($proc.Name) — autre port sera utilise." -ForegroundColor DarkGray
+        Write-Host "   Port 3000 utilise par : $($proc.Name) - autre port sera utilise." -ForegroundColor DarkGray
     }
 }
 
