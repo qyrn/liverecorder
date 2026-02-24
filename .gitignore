@@ -1,12 +1,12 @@
 node_modules/
-.env
 recordings/
+.env
+cookies*.txt
+*cookies*.txt
 .claude/
 apps/frontend/dist/
 *.log
 *.db
 *.db-shm
 *.db-wal
-cookies*.txt
-*cookies*.txt
 .port

@@ -33,13 +33,12 @@ function getSettings() {
   const db = getDb();
   const rows = db.prepare(
     `SELECT key, value FROM settings WHERE key IN (
-      'cookies_file', 'quality_preset', 'ytdlp_path', 'ffmpeg_path',
+      'quality_preset', 'ytdlp_path', 'ffmpeg_path',
       'max_concurrent', 'hls_concurrency', 'ytdlp_concurrent_fragments'
     )`
   ).all();
   const m = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   return {
-    cookiesFile:               m.cookies_file ?? "",
     qualityPreset:             m.quality_preset ?? "source",
     ytdlpPath:                 m.ytdlp_path || "C:/yt-dlp/yt-dlp.exe",
     ffmpegPath:                m.ffmpeg_path || "C:/ffmpeg/bin/ffmpeg.exe",
@@ -255,10 +254,6 @@ export async function startDownload({ url, qualityPreset: qpOverride } = {}) {
 
     if (FORMAT_MAP[qualityPreset]) {
       args.push("-f", FORMAT_MAP[qualityPreset]);
-    }
-
-    if (s.cookiesFile && existsSync(s.cookiesFile)) {
-      args.push("--cookies", s.cookiesFile);
     }
 
     args.push(effectiveUrl);

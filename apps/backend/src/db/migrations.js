@@ -22,12 +22,12 @@ export function runMigrations() {
     );
   `);
 
+  db.prepare("DELETE FROM settings WHERE key IN ('cookies_file', 'streamlink_path')").run();
+
   const defaults = [
     ["output_path", "./recordings"],
     ["ytdlp_path", "C:/yt-dlp/yt-dlp.exe"],
     ["ffmpeg_path", "C:/ffmpeg/bin/ffmpeg.exe"],
-    ["streamlink_path", "streamlink"],
-    ["cookies_file", ""],
     ["quality_preset", "source"],
     ["max_concurrent", "3"],
     ["hls_concurrency", "16"],

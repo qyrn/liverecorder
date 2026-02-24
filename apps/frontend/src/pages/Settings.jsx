@@ -6,15 +6,8 @@ const SECTIONS = [
   {
     label: "Chemins outils",
     fields: [
-      { key: "ytdlp_path",      label: "yt-dlp",      type: "text" },
-      { key: "ffmpeg_path",     label: "ffmpeg",      type: "text" },
-      { key: "streamlink_path", label: "streamlink",  type: "text" },
-      {
-        key: "cookies_file",
-        label: "Fichier cookies (.txt)",
-        type: "text",
-        hint: "Sub-only Twitch, membres YouTube, contenu âge restreint. Exporte via « Get cookies.txt LOCALLY ».",
-      },
+      { key: "ytdlp_path",  label: "yt-dlp",  type: "text" },
+      { key: "ffmpeg_path", label: "ffmpeg",  type: "text" },
     ],
   },
   {
@@ -60,9 +53,8 @@ const SECTIONS = [
 ];
 
 const TOOLS = [
-  { key: "ytdlp",      label: "yt-dlp",      optional: false },
-  { key: "ffmpeg",     label: "ffmpeg",      optional: false },
-  { key: "streamlink", label: "streamlink",  optional: true },
+  { key: "ytdlp",  label: "yt-dlp", optional: false },
+  { key: "ffmpeg", label: "ffmpeg", optional: false },
 ];
 
 export default function SettingsPanel({ onClose }) {
