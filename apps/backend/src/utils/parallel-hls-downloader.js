@@ -68,10 +68,14 @@ async function fetchWithRetry(url, signal) {
   }
 }
 
+// Retourne { segments: string[], initUrl: string|null }
+// initUrl présent = segments en fMP4 (CMAF), doit être écrit en tête de fichier.
 async function parseM3U8(playlistUrl, signal) {
   const buf = await fetchWithRetry(playlistUrl, signal);
   const text = buf.toString("utf-8");
   const base = playlistUrl.substring(0, playlistUrl.lastIndexOf("/") + 1);
+
+  const resolve = (u) => (u.startsWith("http") ? u : base + u);
 
   // Master manifest → résoudre la première sous-playlist
   if (text.includes("#EXT-X-STREAM-INF")) {
@@ -80,14 +84,21 @@ async function parseM3U8(playlistUrl, signal) {
       .map((l) => l.trim())
       .find((l) => l && !l.startsWith("#"));
     if (!subUrl) throw new Error("Master manifest sans sous-playlist");
-    return parseM3U8(subUrl.startsWith("http") ? subUrl : base + subUrl, signal);
+    return parseM3U8(resolve(subUrl), signal);
   }
 
-  return text
+  // Détecter le segment d'initialisation fMP4 (#EXT-X-MAP)
+  let initUrl = null;
+  const mapMatch = text.match(/#EXT-X-MAP:URI="([^"]+)"/);
+  if (mapMatch) initUrl = resolve(mapMatch[1]);
+
+  const segments = text
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l && !l.startsWith("#"))
-    .map((l) => (l.startsWith("http") ? l : base + l));
+    .map(resolve);
+
+  return { segments, initUrl };
 }
 
 /**
@@ -107,14 +118,21 @@ export async function downloadHLSParallel(playlistUrl, outputPath, {
 } = {}) {
   await mkdir(dirname(outputPath), { recursive: true });
 
-  const segments = await parseM3U8(playlistUrl, signal);
+  const { segments, initUrl } = await parseM3U8(playlistUrl, signal);
   const total = segments.length;
+  const format = initUrl ? "fMP4" : "TS";
 
-  console.log(`[hls] ${total} segments — ${concurrency} workers — stream TS unique`);
+  console.log(`[hls] ${total} segments — ${concurrency} workers — format ${format}${initUrl ? " (init segment détecté)" : ""}`);
   if (onProgress) onProgress({ done: 0, total, failed: 0, percent: 0 });
 
   const tsPath = outputPath + ".ts.tmp";
   const writeStream = createWriteStream(tsPath);
+
+  // fMP4 : écrire l'init segment en tête avant tous les media segments
+  if (initUrl) {
+    const initBuf = await fetchWithRetry(initUrl, signal);
+    writeStream.write(initBuf);
+  }
 
   const bufferMap = new Map();
   let nextWriteIdx = 0;

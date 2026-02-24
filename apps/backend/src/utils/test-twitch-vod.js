@@ -150,7 +150,7 @@ try {
   console.warn(`  ⚠ ffprobe indisponible ou erreur : ${err.message}`);
 }
 
-if (existsSync(OUT)) unlinkSync(OUT);
+console.log(`\n  Fichier conservé : ${OUT}`);
 console.log("\n╔══════════════════════════════════════╗");
 console.log("║  ✓ TEST COMPLET — aucun crash détecté  ║");
 console.log("╚══════════════════════════════════════╝");
