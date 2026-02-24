@@ -21,10 +21,10 @@ set NEED_DL=0
 set YTDLP_EXE=C:\yt-dlp\yt-dlp.exe
 set FFMPEG_EXE=C:\ffmpeg\bin\ffmpeg.exe
 
-:: ─────────────────────────────────────────────────────
-echo  ─────────────────────────────────────────────────────
-echo   Etape 1/3  —  Prerequis systeme
-echo  ─────────────────────────────────────────────────────
+:: =====================================================
+echo  =====================================================
+echo   Etape 1/3  -  Prerequis systeme
+echo  =====================================================
 echo.
 
 node --version > nul 2>&1
@@ -40,7 +40,7 @@ if errorlevel 1 (
 
 pnpm --version > nul 2>&1
 if errorlevel 1 (
-    echo  [AUTO]       pnpm absent — installation en cours...
+    echo  [AUTO]       pnpm absent - installation en cours...
     npm install -g pnpm > nul 2>&1
     if errorlevel 1 (
         echo  [ERREUR]     Impossible d'installer pnpm automatiquement.
@@ -56,10 +56,10 @@ if errorlevel 1 (
 echo.
 if !ERRORS! GTR 0 goto :fatal
 
-:: ─────────────────────────────────────────────────────
-echo  ─────────────────────────────────────────────────────
-echo   Etape 2/3  —  Outils de telechargement
-echo  ─────────────────────────────────────────────────────
+:: =====================================================
+echo  =====================================================
+echo   Etape 2/3  -  Outils de telechargement
+echo  =====================================================
 echo.
 
 if exist "!YTDLP_EXE!" (
@@ -84,7 +84,7 @@ if !NEED_DL! EQU 0 goto :node_deps
 :: Verifier les droits administrateur avant toute installation
 net session > nul 2>&1
 if errorlevel 1 (
-    echo  ─────────────────────────────────────────────────────
+    echo  =====================================================
     echo   ATTENTION : droits administrateur requis
     echo.
     echo   Pour installer yt-dlp et ffmpeg dans C:\, ce script
@@ -93,21 +93,21 @@ if errorlevel 1 (
     echo   Ferme cette fenetre, puis :
     echo     1. Clic droit sur start.bat
     echo     2. Selectionner "Executer en tant qu'administrateur"
-    echo  ─────────────────────────────────────────────────────
+    echo  =====================================================
     echo.
     pause
     exit /b 1
 )
 
-echo  ─────────────────────────────────────────────────────
-echo   !NEED_DL! outil(s) manquant(s) — installation disponible
+echo  =====================================================
+echo   !NEED_DL! outil(s) manquant(s) - installation disponible
 echo.
 if !MISSING_YTDLP!==1 echo     yt-dlp  (~20 Mo)   github.com/yt-dlp/yt-dlp
 if !MISSING_FFMPEG!==1 echo     ffmpeg  (~80 Mo)   github.com/BtbN/FFmpeg-Builds
 echo.
 echo   Ces outils sont necessaires pour telecharger des videos.
 echo   Ils seront recuperes depuis leurs depots officiels GitHub.
-echo  ─────────────────────────────────────────────────────
+echo  =====================================================
 echo.
 set /p CONSENT=  Telecharger automatiquement ? [O/N]  :
 echo.
@@ -168,11 +168,11 @@ echo.
 pause
 exit /b 1
 
-:: ─────────────────────────────────────────────────────
+:: =====================================================
 :node_deps
-echo  ─────────────────────────────────────────────────────
-echo   Etape 3/3  —  Dependances Node.js
-echo  ─────────────────────────────────────────────────────
+echo  =====================================================
+echo   Etape 3/3  -  Dependances Node.js
+echo  =====================================================
 echo.
 
 if not exist "node_modules" (
@@ -190,13 +190,13 @@ if not exist "node_modules" (
 )
 echo.
 
-:: ─────────────────────────────────────────────────────
-echo  ─────────────────────────────────────────────────────
-echo   Tout est en ordre  —  LiveRecorder demarre...
+:: =====================================================
+echo  =====================================================
+echo   Tout est en ordre  -  LiveRecorder demarre...
 echo.
 echo   Le navigateur s'ouvrira automatiquement.
 echo   Ferme cette fenetre pour arreter le serveur.
-echo  ─────────────────────────────────────────────────────
+echo  =====================================================
 echo.
 
 if exist ".port" del ".port"
@@ -217,9 +217,9 @@ goto :eof
 
 :fatal
 echo.
-echo  ─────────────────────────────────────────────────────
+echo  =====================================================
 echo   !ERRORS! probleme(s) detecte(s). Corrige-les et reessaie.
-echo  ─────────────────────────────────────────────────────
+echo  =====================================================
 echo.
 pause
 exit /b 1
