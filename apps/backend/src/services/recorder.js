@@ -145,11 +145,19 @@ export async function startRecording({ streamerId, platform, streamUrl, streamTi
     "--merge-output-format", "mp4",
     "--ffmpeg-location", config.ffmpegPath,
     "-o", filePath,
+    "--retries", "3",
+    "--fragment-retries", "3",
+    "--skip-unavailable-fragments",
   ];
 
   // Quality selection only applies when bypass is not used (bypass already chose the resolution)
   if (!bypassUsed && FORMAT_MAP[qualityPreset]) {
     args.push("-f", FORMAT_MAP[qualityPreset]);
+  }
+
+  // Concurrent fragment downloads for VODs (not for live streams)
+  if (!isLive) {
+    args.push("--concurrent-fragments", "4");
   }
 
   if (cookiesFile && existsSync(cookiesFile)) {
