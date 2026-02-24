@@ -12,8 +12,8 @@ import {
 } from "./broadcaster.js";
 
 // Nombre de workers parallèles pour les VODs HLS (bypass CloudFront).
-// 8 = bon équilibre vitesse/stabilité. Monter à 12-16 sur bonne connexion.
-const HLS_CONCURRENCY = parseInt(process.env.HLS_CONCURRENCY || "8", 10);
+// Benchmark : 16 workers = optimal (34 MB/s vs 7.5 MB/s en séquentiel).
+const HLS_CONCURRENCY = parseInt(process.env.HLS_CONCURRENCY || "16", 10);
 
 // Fragments concurrents pour yt-dlp (VODs non-bypass).
 const YTDLP_CONCURRENT_FRAGMENTS = parseInt(process.env.YTDLP_CONCURRENT_FRAGMENTS || "4", 10);
