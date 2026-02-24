@@ -195,6 +195,12 @@ echo   Ferme cette fenetre pour arreter le serveur.
 echo  =====================================================
 echo.
 
+:: Tuer une eventuelle instance Node precedente sur le port 3000 (fermeture sans Ctrl+C)
+powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { $p = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue; if ($p -and $p.Name -eq 'node') { Stop-Process -Id $_.OwningProcess -Force; Write-Host '  [nettoyage] Instance precedente arretee.' } }"
+
+:: Detecter automatiquement les chemins des outils (streamlink, etc.)
+node apps\backend\scripts\detect-tools.js 2>nul
+
 if exist ".port" del ".port"
 
 start /B powershell -NoProfile -Command "while (-not (Test-Path '.port')) { Start-Sleep -Milliseconds 500 }; $p = (Get-Content '.port').Trim(); Start-Process ('http://localhost:' + $p)"
