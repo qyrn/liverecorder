@@ -18,9 +18,8 @@ function whereTool(name) {
 }
 
 const tools = [
-  { key: "ytdlp_path",      cmd: "yt-dlp" },
-  { key: "ffmpeg_path",     cmd: "ffmpeg" },
-  { key: "streamlink_path", cmd: "streamlink" },
+  { key: "ytdlp_path",  cmd: "yt-dlp" },
+  { key: "ffmpeg_path", cmd: "ffmpeg" },
 ];
 
 const get = db.prepare("SELECT value FROM settings WHERE key = ?");

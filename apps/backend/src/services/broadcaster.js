@@ -16,10 +16,6 @@ function broadcast(event, data) {
   }
 }
 
-export function broadcastRecordingStarted(recordingId, meta) {
-  broadcast("recording:started", { recordingId, ...meta });
-}
-
 export function broadcastRecordingProgress(recordingId, progress) {
   broadcast("recording:progress", { recordingId, ...progress });
 }

@@ -18,7 +18,3 @@ export async function killProcess(pid) {
   } catch {
   }
 }
-
-export function probeVersion(bin) {
-  return execFileAsync(bin, ["--version"], { timeout: 5000 });
-}
