@@ -188,6 +188,20 @@ echo.
 
 :: =====================================================
 echo  =====================================================
+echo   Compilation du frontend...
+echo  =====================================================
+echo.
+
+call pnpm --filter frontend build
+if errorlevel 1 (
+    echo.
+    echo  [ERREUR]     La compilation du frontend a echoue.
+    goto :fatal
+)
+echo.
+
+:: =====================================================
+echo  =====================================================
 echo   Tout est en ordre  -  LiveRecorder demarre...
 echo.
 echo   Le navigateur s'ouvrira automatiquement.
@@ -195,8 +209,8 @@ echo   Ferme cette fenetre pour arreter le serveur.
 echo  =====================================================
 echo.
 
-:: Tuer une eventuelle instance Node precedente sur le port 3000 (fermeture sans Ctrl+C)
-powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { $p = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue; if ($p -and $p.Name -eq 'node') { Stop-Process -Id $_.OwningProcess -Force; Write-Host '  [nettoyage] Instance precedente arretee.' } }"
+:: Tuer une eventuelle instance Node precedente sur le port 3000
+powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { $proc = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue; if ($proc) { if ($proc.Name -eq 'node') { Stop-Process -Id $_.OwningProcess -Force; Write-Host '  [nettoyage] Instance Node precedente arretee.' } else { Write-Host ('  [info] Port 3000 occupe par : ' + $proc.Name + ' (PID ' + $_.OwningProcess + ') - le serveur demarrera sur un autre port.') } } }"
 
 :: Detecter automatiquement les chemins des outils (streamlink, etc.)
 node apps\backend\scripts\detect-tools.js 2>nul

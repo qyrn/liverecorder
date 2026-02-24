@@ -60,9 +60,9 @@ const SECTIONS = [
 ];
 
 const TOOLS = [
-  { key: "ytdlp",      label: "yt-dlp" },
-  { key: "ffmpeg",     label: "ffmpeg" },
-  { key: "streamlink", label: "streamlink" },
+  { key: "ytdlp",      label: "yt-dlp",      optional: false },
+  { key: "ffmpeg",     label: "ffmpeg",      optional: false },
+  { key: "streamlink", label: "streamlink",  optional: true },
 ];
 
 export default function SettingsPanel({ onClose }) {
@@ -153,20 +153,22 @@ export default function SettingsPanel({ onClose }) {
             <div className="card" style={{ padding: "12px 14px", marginBottom: 20 }}>
               <p className="section-label" style={{ marginBottom: 10 }}>État des outils</p>
               <div style={{ display: "flex", gap: 20 }}>
-                {TOOLS.map(({ key, label }) => {
+                {TOOLS.map(({ key, label, optional }) => {
                   const ok = health[key]?.ok;
+                  const dotColor = ok ? "#22c55e" : optional ? "#444" : "#e63946";
+                  const textColor = ok ? "#aaa" : "#444";
                   return (
                     <div key={key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{
                         width: 6,
                         height: 6,
                         borderRadius: "50%",
-                        background: ok ? "#22c55e" : "#e63946",
+                        background: dotColor,
                         display: "inline-block",
                         flexShrink: 0,
                       }} />
-                      <span style={{ fontSize: 10, color: ok ? "#aaa" : "#555", letterSpacing: "0.04em" }}>
-                        {label}
+                      <span style={{ fontSize: 10, color: textColor, letterSpacing: "0.04em" }}>
+                        {label}{optional && !ok ? " (optionnel)" : ""}
                       </span>
                     </div>
                   );
