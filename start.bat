@@ -4,13 +4,9 @@ chcp 65001 > nul
 setlocal enabledelayedexpansion
 
 echo.
-echo  ██╗     ██╗██╗   ██╗███████╗██████╗ ███████╗ ██████╗
-echo  ██║     ██║██║   ██║██╔════╝██╔══██╗██╔════╝██╔════╝
-echo  ██║     ██║██║   ██║█████╗  ██████╔╝█████╗  ██║
-echo  ██║     ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗██╔══╝  ██║
-echo  ███████╗██║ ╚████╔╝ ███████╗██║  ██║███████╗╚██████╗
-echo  ╚══════╝╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝
-echo   D O W N L O A D E R
+echo  ================================================
+echo   LiveRecorder  -  D O W N L O A D E R
+echo  ================================================
 echo.
 
 set ERRORS=0
@@ -207,13 +203,15 @@ start /B powershell -NoProfile -Command ^
   Start-Process ('http://localhost:' + $p)"
 
 pnpm start
-if errorlevel 1 (
-    echo.
-    echo  [ERREUR]     Le serveur s'est arrete de facon inattendue.
-    echo.
-    pause
+set /a EXIT_CODE=!errorlevel!
+echo.
+if !EXIT_CODE! NEQ 0 (
+    echo  [ERREUR]     Le serveur s'est arrete de facon inattendue ^(code: !EXIT_CODE!^).
+) else (
+    echo  Le serveur s'est arrete.
 )
-goto :eof
+echo  Appuie sur une touche pour fermer cette fenetre.
+pause > nul
 
 :fatal
 echo.
