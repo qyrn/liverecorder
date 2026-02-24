@@ -59,13 +59,19 @@ if !ERRORS! GTR 0 (
 
 echo  ─────────────────────────────────────────────────────
 echo  Tout est en ordre. Lancement de LiveRecorder...
-echo  Le navigateur va s'ouvrir sur http://localhost:3001
+echo  Le navigateur va s'ouvrir automatiquement sur le bon port.
 echo  Configure les chemins outils dans l'interface (Parametres).
 echo  Ferme cette fenetre pour arreter le serveur.
 echo  ─────────────────────────────────────────────────────
 echo.
 
-start "" "http://localhost:3001"
+if exist ".port" del ".port"
+
+start /B powershell -NoProfile -Command ^
+  "while (-not (Test-Path '.port')) { Start-Sleep -Milliseconds 500 }; ^
+  $p = (Get-Content '.port').Trim(); ^
+  Start-Process ('http://localhost:' + $p)"
+
 pnpm start
 if errorlevel 1 (
     echo.

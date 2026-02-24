@@ -1,5 +1,5 @@
 import { createServer } from "http";
-import { existsSync } from "fs";
+import { existsSync, writeFileSync, unlinkSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
@@ -15,6 +15,7 @@ import recordingsRouter from "./routes/recordings.js";
 import settingsRouter from "./routes/settings.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const portFilePath = resolve(__dirname, "../../../.port");
 
 function checkPrerequisites() {
   const db = getDb();
@@ -71,12 +72,26 @@ wss.on("connection", (ws) => {
   ws.on("error", () => {});
 });
 
-httpServer.listen(config.port, () => {
-  console.log(`LiveRecorder running on http://localhost:${config.port}`);
-});
+function listen(port) {
+  httpServer.listen(port, () => {
+    writeFileSync(portFilePath, String(port));
+    console.log(`LiveRecorder running on http://localhost:${port}`);
+  });
+  httpServer.once("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.log(`Port ${port} occupé, essai du port ${port + 1}...`);
+      listen(port + 1);
+    } else {
+      throw err;
+    }
+  });
+}
+
+listen(config.port);
 
 process.on("SIGINT", async () => {
   console.log("Shutting down — stopping active downloads...");
   await stopAll();
+  if (existsSync(portFilePath)) unlinkSync(portFilePath);
   httpServer.close(() => process.exit(0));
 });

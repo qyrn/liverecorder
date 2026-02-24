@@ -9,3 +9,4 @@ apps/frontend/dist/
 *.db-wal
 cookies*.txt
 *cookies*.txt
+.port
