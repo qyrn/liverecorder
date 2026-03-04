@@ -1,7 +1,3 @@
-// Téléchargeur HLS parallèle v2 — stream vers un fichier .ts unique (pas 8000 fichiers).
-// Workers parallèles + Agent HTTP keep-alive + backpressure mémoire bornée.
-// Benchmark sur stream Apple : 1 worker=7.5 MB/s, 4=22 MB/s, 8=29 MB/s, 16=34 MB/s → défaut 16.
-
 import { createWriteStream } from "fs";
 import { unlink, mkdir } from "fs/promises";
 import { dirname } from "path";
@@ -13,11 +9,8 @@ import { spawnProcess } from "./subprocess.js";
 import { config } from "../config.js";
 
 const MAX_RETRIES = 6;
-// Segments gardés en RAM avant que le writer les consomme.
-// 16 workers × 4 = ~64 segments × ~4.5 MB = ~290 MB max.
 const BACKPRESSURE_LIMIT = 64;
 
-// Agents keep-alive : réutilise les connexions TCP entre segments (réduit la latence ~20%).
 const httpsAgent = new HttpsAgent({ keepAlive: true, maxSockets: 64, maxFreeSockets: 32 });
 const httpAgent  = new HttpAgent ({ keepAlive: true, maxSockets: 64, maxFreeSockets: 32 });
 
@@ -63,13 +56,11 @@ async function fetchWithRetry(url, signal) {
     } catch (err) {
       if (err.cancelled) throw err;
       if (attempt === MAX_RETRIES - 1) throw err;
-      await sleep(500 * Math.pow(2, attempt)); // 500ms, 1s, 2s, 4s, 8s, 16s
+      await sleep(500 * Math.pow(2, attempt));
     }
   }
 }
 
-// Retourne { segments: string[], initUrl: string|null }
-// initUrl présent = segments en fMP4 (CMAF), doit être écrit en tête de fichier.
 async function parseM3U8(playlistUrl, signal) {
   const buf = await fetchWithRetry(playlistUrl, signal);
   const text = buf.toString("utf-8");
@@ -77,7 +68,6 @@ async function parseM3U8(playlistUrl, signal) {
 
   const resolve = (u) => (u.startsWith("http") ? u : base + u);
 
-  // Master manifest → résoudre la première sous-playlist
   if (text.includes("#EXT-X-STREAM-INF")) {
     const subUrl = text
       .split("\n")
@@ -87,7 +77,6 @@ async function parseM3U8(playlistUrl, signal) {
     return parseM3U8(resolve(subUrl), signal);
   }
 
-  // Détecter le segment d'initialisation fMP4 (#EXT-X-MAP)
   let initUrl = null;
   const mapMatch = text.match(/#EXT-X-MAP:URI="([^"]+)"/);
   if (mapMatch) initUrl = resolve(mapMatch[1]);
@@ -101,16 +90,6 @@ async function parseM3U8(playlistUrl, signal) {
   return { segments, initUrl };
 }
 
-/**
- * Télécharge un flux HLS en parallèle et produit un fichier MP4 final.
- * Stratégie : N workers → buffers indexés → writer séquentiel → .ts unique → ffmpeg → .mp4
- *
- * @param {string}      playlistUrl          URL du m3u8 (media ou master)
- * @param {string}      outputPath           Chemin du fichier .mp4 de sortie
- * @param {number}      [options.concurrency=16]   Nombre de workers parallèles
- * @param {AbortSignal} [options.signal]     Signal d'annulation
- * @param {Function}    [options.onProgress] Callback({ done, total, failed, percent })
- */
 export async function downloadHLSParallel(playlistUrl, outputPath, {
   concurrency = 16,
   signal = null,
@@ -128,7 +107,6 @@ export async function downloadHLSParallel(playlistUrl, outputPath, {
   const tsPath = outputPath + ".ts.tmp";
   const writeStream = createWriteStream(tsPath);
 
-  // fMP4 : écrire l'init segment en tête avant tous les media segments
   if (initUrl) {
     const initBuf = await fetchWithRetry(initUrl, signal);
     writeStream.write(initBuf);
@@ -139,15 +117,12 @@ export async function downloadHLSParallel(playlistUrl, outputPath, {
   let done = 0;
   let failed = 0;
 
-  // Mécanisme de wake-up du writer quand un nouveau buffer est disponible
   let writerWake = null;
   const notify = () => { if (writerWake) { writerWake(); writerWake = null; } };
   const waitNotif = () => new Promise((r) => { writerWake = r; });
 
-  // Writer séquentiel : consomme bufferMap dans l'ordre et stream vers le .ts
   const writerLoop = async () => {
     while (nextWriteIdx < total) {
-      // Si annulé, on sort immédiatement sans attendre des buffers qui n'arriveront plus
       if (signal?.aborted) {
         writeStream.destroy();
         return;
@@ -169,14 +144,12 @@ export async function downloadHLSParallel(playlistUrl, outputPath, {
     }
   };
 
-  // Workers : téléchargent les segments en parallèle
   const queue = segments.map((url, i) => ({ url, i }));
 
   const worker = async () => {
     while (queue.length > 0) {
       if (signal?.aborted) return;
 
-      // Backpressure : ne pas exploser la RAM si le writer est en retard
       while (bufferMap.size >= BACKPRESSURE_LIMIT) {
         await sleep(20);
       }
@@ -192,7 +165,6 @@ export async function downloadHLSParallel(playlistUrl, outputPath, {
         if (err.cancelled) return;
         failed++;
         done++;
-        // Slot vide pour ne pas bloquer le writer sur ce segment
         bufferMap.set(task.i, Buffer.alloc(0));
         console.error(`[hls] Segment ${task.i} abandonné après ${MAX_RETRIES} tentatives`);
       }
@@ -206,7 +178,7 @@ export async function downloadHLSParallel(playlistUrl, outputPath, {
 
   try {
     const workersPromise = Promise.all(Array.from({ length: concurrency }, worker))
-      .then(() => notify()); // Réveiller le writer quand tous les workers sont finis (ex: abort)
+      .then(() => notify());
 
     await Promise.all([writerLoop(), workersPromise]);
 
@@ -219,7 +191,6 @@ export async function downloadHLSParallel(playlistUrl, outputPath, {
 
     if (ok === 0) throw new Error("Aucun segment téléchargé");
 
-    // Conversion .ts → .mp4 (stream copy, quelques secondes)
     await new Promise((resolve, reject) => {
       const proc = spawnProcess(config.ffmpegPath, [
         "-i", tsPath,

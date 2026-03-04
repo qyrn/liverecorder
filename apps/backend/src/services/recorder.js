@@ -50,7 +50,6 @@ function getSettings() {
 
 async function remuxPartFile(partPath, outputPath, ffmpegPath) {
   return new Promise((resolve) => {
-    // Petit délai pour que Windows libère les handles de fichier après taskkill
     setTimeout(() => {
       const proc = spawnProcess(ffmpegPath, [
         "-i", partPath,

@@ -1,13 +1,3 @@
-// Bypass Twitch subscriber-only VODs by reconstructing the direct CloudFront HLS URL.
-// Mechanism reverse-engineered from TwitchNoSub extension (besuper/TwitchNoSub).
-//
-// How it works:
-//   1. Twitch protects VOD manifests via usher.ttvnw.net (requires a subscriber token)
-//   2. The actual video segments on CloudFront have no subscription check
-//   3. A public GraphQL query returns seekPreviewsURL which contains the CDN domain
-//      and the unique VOD path (vodSpecialID) — enough to reconstruct the manifest URL
-//   4. yt-dlp receives the direct CloudFront m3u8 and downloads without any auth
-
 const GQL_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 
 const QUALITY_RESOLUTIONS = {
