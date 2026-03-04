@@ -1,6 +1,8 @@
-#Requires -Version 5.0
-$ErrorActionPreference = "SilentlyContinue"
-$Host.UI.RawUI.WindowTitle = "LiveRecorder"
+﻿#Requires -Version 5.0
+[Console]::OutputEncoding      = [System.Text.Encoding]::UTF8
+$OutputEncoding                = [System.Text.Encoding]::UTF8
+$ErrorActionPreference         = "SilentlyContinue"
+$Host.UI.RawUI.WindowTitle     = "LiveRecorder"
 
 $YTDLP_EXE  = "C:\yt-dlp\yt-dlp.exe"
 $FFMPEG_EXE = "C:\ffmpeg\bin\ffmpeg.exe"
@@ -37,15 +39,16 @@ function Warn($label) {
     Write-Host "   $label" -ForegroundColor DarkGray
 }
 
+# Interior width = 51 chars (between the two | characters)
 function Banner($subtitle, $color = "Cyan") {
     Clear-Host; Blank; Blank
     Write-Host "    ___________________________________________________" -ForegroundColor DarkGray
     Write-Host "   |                                                   |" -ForegroundColor DarkGray
     Write-Host "   |" -ForegroundColor DarkGray -NoNewline
-    Write-Host "   L I V E  R E C O R D E R                       " -ForegroundColor $color -NoNewline
+    Write-Host ("   L I V E  R E C O R D E R").PadRight(51) -ForegroundColor $color -NoNewline
     Write-Host "|" -ForegroundColor DarkGray
     Write-Host "   |" -ForegroundColor DarkGray -NoNewline
-    Write-Host "   $subtitle" -ForegroundColor DarkGray -NoNewline
+    Write-Host ("   $subtitle").PadRight(51) -ForegroundColor DarkGray -NoNewline
     Write-Host "|" -ForegroundColor DarkGray
     Write-Host "   |___________________________________________________|" -ForegroundColor DarkGray
     Blank; Blank
@@ -55,63 +58,108 @@ function Ask($q) {
     Blank
     Write-Host "   $q" -ForegroundColor Yellow
     Blank
-    $r = Read-Host "     [ O / Y ] oui/yes     [ N ] annuler/cancel"
-    return ($r -ieq "O" -or $r -ieq "Y")
+    Write-Host "     [ Y ] yes / oui     [ N ] cancel / annuler  " -NoNewline -ForegroundColor DarkGray
+    do {
+        $key  = [Console]::ReadKey($true)
+        $char = $key.KeyChar.ToString().ToUpper()
+    } while ($char -ne 'Y' -and $char -ne 'O' -and $char -ne 'N')
+    if ($char -eq 'N') {
+        Write-Host "  N" -ForegroundColor Red
+    } else {
+        Write-Host "  Y" -ForegroundColor Green
+    }
+    Blank
+    return ($char -eq 'Y' -or $char -eq 'O')
+}
+
+function PickLang {
+    Blank
+    Write-Host "   Interface language  /  Langue de l'interface :" -ForegroundColor Yellow
+    Blank
+    Write-Host "     [ F ] Français     [ E ] English  " -NoNewline -ForegroundColor DarkGray
+    do {
+        $key  = [Console]::ReadKey($true)
+        $char = $key.KeyChar.ToString().ToUpper()
+    } while ($char -ne 'F' -and $char -ne 'E')
+    if ($char -eq 'F') {
+        Write-Host "  FR" -ForegroundColor Cyan
+        Blank
+        return "fr"
+    } else {
+        Write-Host "  EN" -ForegroundColor Cyan
+        Blank
+        return "en"
+    }
+}
+
+function PressAnyKey {
+    Blank
+    Write-Host "   Press any key to close  /  Appuyez sur une touche pour fermer" -ForegroundColor DarkGray
+    [Console]::ReadKey($true) | Out-Null
 }
 
 function Die($msg) {
     Blank; Fail $msg; Blank
-    Read-Host "   Entree pour fermer / Enter to close" | Out-Null
+    PressAnyKey
     exit 1
 }
 
 # ================================================================
 # PRESENTATION
 # ================================================================
-Banner "   VOD Downloader   /   Telechargeur de VODs          "
+Banner "VOD Downloader   /   Téléchargeur de VODs"
 
-Write-Host "   Ce script va preparer et lancer LiveRecorder sur ta machine." -ForegroundColor White
-Write-Host "   This script will set up and launch LiveRecorder on your machine." -ForegroundColor DarkGray
+Write-Host "   This script will set up and launch LiveRecorder on your machine." -ForegroundColor White
+Write-Host "   Ce script va préparer et lancer LiveRecorder sur ta machine." -ForegroundColor DarkGray
 Blank; Blank
-Write-Host "   Ce qui va se passer  /  What will happen :" -ForegroundColor Magenta
+Write-Host "   What will happen  /  Ce qui va se passer :" -ForegroundColor Magenta
 Blank
-Write-Host "    1  " -ForegroundColor DarkGray -NoNewline; Write-Host "Verification de Node.js et pnpm" -ForegroundColor White
-Write-Host "       Check Node.js and pnpm" -ForegroundColor DarkGray
+Write-Host "    1  " -ForegroundColor DarkGray -NoNewline
+Write-Host "Check Node.js and pnpm" -ForegroundColor White
+Write-Host "       Vérification de Node.js et pnpm" -ForegroundColor DarkGray
 Blank
-Write-Host "    2  " -ForegroundColor DarkGray -NoNewline; Write-Host "Verification de yt-dlp et ffmpeg" -ForegroundColor White
-Write-Host "       Check yt-dlp and ffmpeg  " -ForegroundColor DarkGray -NoNewline
-Write-Host "(telechargement propose si absents / offered if missing)" -ForegroundColor DarkGray
+Write-Host "    2  " -ForegroundColor DarkGray -NoNewline
+Write-Host "Check yt-dlp and ffmpeg" -ForegroundColor White
+Write-Host "       Vérification de yt-dlp et ffmpeg" -ForegroundColor DarkGray
+Write-Host "       (offered if missing  /  téléchargement proposé si absents)" -ForegroundColor DarkGray
 Blank
-Write-Host "    3  " -ForegroundColor DarkGray -NoNewline; Write-Host "Dependances Node.js" -ForegroundColor White -NoNewline
-Write-Host "  (premiere fois uniquement / first time only)" -ForegroundColor DarkGray
+Write-Host "    3  " -ForegroundColor DarkGray -NoNewline
+Write-Host "Node.js dependencies" -ForegroundColor White -NoNewline
+Write-Host "  (first time only  /  première fois uniquement)" -ForegroundColor DarkGray
 Blank
-Write-Host "    4  " -ForegroundColor DarkGray -NoNewline; Write-Host "Compilation de l'interface web  /  Build the web interface" -ForegroundColor White
+Write-Host "    4  " -ForegroundColor DarkGray -NoNewline
+Write-Host "Build the web interface  /  Compilation de l'interface web" -ForegroundColor White
 Blank
-Write-Host "    5  " -ForegroundColor DarkGray -NoNewline; Write-Host "Demarrage du serveur + ouverture du navigateur" -ForegroundColor White
-Write-Host "       Start the server + open your browser" -ForegroundColor DarkGray
+Write-Host "    5  " -ForegroundColor DarkGray -NoNewline
+Write-Host "Start the server and open your browser" -ForegroundColor White
+Write-Host "       Démarrage du serveur + ouverture du navigateur" -ForegroundColor DarkGray
 Blank; Blank
-Write-Host "   Aucune donnee collectee ou envoyee. Tout reste sur ta machine." -ForegroundColor DarkGray
 Write-Host "   No data collected or sent. Everything stays on your machine." -ForegroundColor DarkGray
+Write-Host "   Aucune donnée collectée ou envoyée. Tout reste sur ta machine." -ForegroundColor DarkGray
 Blank; Sep; Blank
 
-if (-not (Ask "Continuer / Continue ?")) {
-    Blank; Write-Host "   Annule.  /  Cancelled." -ForegroundColor Red; Blank
-    Read-Host "   Entree pour fermer / Enter to close" | Out-Null
+if (-not (Ask "Continue?  /  Continuer ?")) {
+    Blank
+    Write-Host "   Cancelled.  /  Annulé." -ForegroundColor Red
+    Blank
+    PressAnyKey
     exit 0
 }
 
+$LANG = PickLang
+
 # ================================================================
-# ETAPE 1 - PREREQUIS
+# STEP 1 - PREREQUISITES
 # ================================================================
 Clear-Host
-Section "Etape 1 / 3   Prerequis systeme  /  System requirements"
+Section "Step 1/3   System requirements  /  Prérequis système"
 
 $errors = 0
 
 $nodeVer = & node --version 2>$null
 if ($LASTEXITCODE -ne 0) {
-    Fail "Node.js n'est pas installe / not installed"
-    Write-Host "            Telecharge-le sur : https://nodejs.org" -ForegroundColor DarkGray
+    Fail "Node.js is not installed  /  n'est pas installé"
+    Write-Host "            Download at  /  Télécharge sur : https://nodejs.org" -ForegroundColor DarkGray
     $errors++
 } else { OK "Node.js" $nodeVer }
 
@@ -119,69 +167,69 @@ Blank
 
 $pnpmVer = & pnpm --version 2>$null
 if ($LASTEXITCODE -ne 0) {
-    Warn "pnpm absent, installation automatique / auto-installing..."
+    Warn "pnpm not found, installing...  /  absent, installation automatique..."
     & npm install -g pnpm 2>$null | Out-Null
     $pnpmVer = & pnpm --version 2>$null
     if ($LASTEXITCODE -ne 0) {
-        Fail "Impossible d'installer pnpm. Lance : npm install -g pnpm"
+        Fail "Cannot install pnpm. Run: npm install -g pnpm"
         $errors++
-    } else { OK "pnpm" "$pnpmVer  (installe / installed)" }
+    } else { OK "pnpm" "$pnpmVer  (installed  /  installé)" }
 } else { OK "pnpm" $pnpmVer }
 
-if ($errors -gt 0) { Die "$errors probleme(s) detecte(s). Corrige et relance. / Fix and retry." }
+if ($errors -gt 0) { Die "$errors issue(s) detected — fix and retry.  /  problème(s) détecté(s) — corrige et relance." }
 
 # ================================================================
-# ETAPE 2 - OUTILS
+# STEP 2 - TOOLS
 # ================================================================
 Blank
-Section "Etape 2 / 3   Outils de telechargement  /  Download tools"
+Section "Step 2/3   Download tools  /  Outils de téléchargement"
 
 $missingYtdlp  = -not (Test-Path $YTDLP_EXE)
 $missingFfmpeg = -not (Test-Path $FFMPEG_EXE)
 
-if (-not $missingYtdlp)  { OK "yt-dlp"  $YTDLP_EXE  } else { Fail "yt-dlp   non trouve / not found" }
+if (-not $missingYtdlp)  { OK "yt-dlp"  $YTDLP_EXE  } else { Fail "yt-dlp   not found  /  non trouvé" }
 Blank
-if (-not $missingFfmpeg) { OK "ffmpeg"  $FFMPEG_EXE } else { Fail "ffmpeg   non trouve / not found" }
+if (-not $missingFfmpeg) { OK "ffmpeg"  $FFMPEG_EXE } else { Fail "ffmpeg   not found  /  non trouvé" }
 
 if ($missingYtdlp -or $missingFfmpeg) {
     $count = ($missingYtdlp, $missingFfmpeg | Where-Object { $_ }).Count
     Blank
-    Write-Host "   $count outil(s) manquant(s)  /  $count tool(s) missing :" -ForegroundColor Yellow
+    Write-Host "   $count tool(s) missing  /  $count outil(s) manquant(s) :" -ForegroundColor Yellow
     Blank
-    if ($missingYtdlp)  { Write-Host "     - yt-dlp   (~20 Mo)   github.com/yt-dlp/yt-dlp" -ForegroundColor DarkGray }
-    if ($missingFfmpeg) { Write-Host "     - ffmpeg   (~80 Mo)   github.com/BtbN/FFmpeg-Builds" -ForegroundColor DarkGray }
+    if ($missingYtdlp)  { Write-Host "     - yt-dlp   (~20 MB)   github.com/yt-dlp/yt-dlp" -ForegroundColor DarkGray }
+    if ($missingFfmpeg) { Write-Host "     - ffmpeg   (~80 MB)   github.com/BtbN/FFmpeg-Builds" -ForegroundColor DarkGray }
     Blank
-    Write-Host "   Ces outils sont indispensables. / These tools are required." -ForegroundColor DarkGray
+    Write-Host "   These tools are required.  /  Ces outils sont indispensables." -ForegroundColor DarkGray
 
     $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     if (-not $isAdmin) {
         Blank; Sep
-        Write-Host "   Droits administrateur requis  /  Admin rights required" -ForegroundColor Yellow
+        Write-Host "   Admin rights required  /  Droits administrateur requis" -ForegroundColor Yellow
         Blank
-        Write-Host "   Clic droit sur start.bat > Executer en tant qu'administrateur" -ForegroundColor DarkGray
         Write-Host "   Right-click start.bat > Run as administrator" -ForegroundColor DarkGray
+        Write-Host "   Clic droit sur start.bat > Exécuter en tant qu'administrateur" -ForegroundColor DarkGray
         Sep
-        Read-Host "`n   Entree pour fermer / Enter to close" | Out-Null
+        PressAnyKey
         exit 1
     }
 
-    if (Ask "Telecharger depuis GitHub ?  /  Download from GitHub?") {
+    if (Ask "Download from GitHub?  /  Télécharger depuis GitHub ?") {
 
         if ($missingYtdlp) {
-            Blank; Warn "Telechargement de yt-dlp...  /  Downloading yt-dlp..."; Blank
+            Blank; Warn "Downloading yt-dlp...  /  Téléchargement de yt-dlp..."; Blank
             New-Item -ItemType Directory -Force -Path "C:\yt-dlp" | Out-Null
             & curl.exe -L --progress-bar -o $YTDLP_EXE "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
-            if ($LASTEXITCODE -ne 0) { Fail "Echec. Verifie ta connexion. / Download failed."; $errors++ }
-            else { OK "yt-dlp installe dans C:\yt-dlp\" }
+            if ($LASTEXITCODE -ne 0) { Fail "Download failed — check your connection.  /  Échec — vérifie ta connexion."; $errors++ }
+            else { OK "yt-dlp installed in C:\yt-dlp\" }
         }
 
         if ($missingFfmpeg) {
-            Blank; Warn "Telechargement de ffmpeg (1-2 min)...  /  Downloading ffmpeg..."; Blank
+            Blank; Warn "Downloading ffmpeg (~1-2 min)...  /  Téléchargement de ffmpeg..."; Blank
             $zip = [IO.Path]::GetTempPath() + "ffmpeg_lr.zip"
             & curl.exe -L --progress-bar -o $zip "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
-            if ($LASTEXITCODE -ne 0) { Fail "Echec. Verifie ta connexion. / Download failed."; $errors++ }
+            if ($LASTEXITCODE -ne 0) { Fail "Download failed — check your connection.  /  Échec — vérifie ta connexion."; $errors++ }
             else {
-                Warn "Extraction en cours...  /  Extracting..."
+                Warn "Extracting...  /  Extraction en cours..."
                 $out = [IO.Path]::GetTempPath() + "ffmpeg_lr_ext"
                 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
                 Expand-Archive -Path $zip -DestinationPath $out -Force
@@ -189,104 +237,107 @@ if ($missingYtdlp -or $missingFfmpeg) {
                 New-Item -ItemType Directory -Force -Path "C:\ffmpeg\bin" | Out-Null
                 Copy-Item $exe.FullName "C:\ffmpeg\bin\ffmpeg.exe" -Force
                 Remove-Item $zip, $out -Recurse -Force
-                OK "ffmpeg installe dans C:\ffmpeg\bin\"
+                OK "ffmpeg installed in C:\ffmpeg\bin\"
             }
         }
 
-        if ($errors -gt 0) { Die "$errors erreur(s). Relance le script. / Restart the script." }
+        if ($errors -gt 0) { Die "$errors error(s) — restart the script.  /  erreur(s) — relance le script." }
 
     } else {
         Blank
-        Write-Host "   Installation manuelle  /  Manual installation :" -ForegroundColor Yellow; Blank
+        Write-Host "   Manual installation  /  Installation manuelle :" -ForegroundColor Yellow; Blank
         if ($missingYtdlp) {
             Write-Host "     yt-dlp  :  https://github.com/yt-dlp/yt-dlp/releases/latest" -ForegroundColor White
+            Write-Host "                Place yt-dlp.exe in C:\yt-dlp\" -ForegroundColor DarkGray
             Write-Host "                Placer yt-dlp.exe dans C:\yt-dlp\" -ForegroundColor DarkGray; Blank
         }
         if ($missingFfmpeg) {
             Write-Host "     ffmpeg  :  https://ffmpeg.org/download.html" -ForegroundColor White
+            Write-Host "                Place ffmpeg.exe in C:\ffmpeg\bin\" -ForegroundColor DarkGray
             Write-Host "                Placer ffmpeg.exe dans C:\ffmpeg\bin\" -ForegroundColor DarkGray; Blank
         }
-        Write-Host "   Chemins personnalisables dans l'onglet Parametres apres le lancement." -ForegroundColor DarkGray
-        Read-Host "`n   Entree pour fermer / Enter to close" | Out-Null
+        Write-Host "   Paths can be changed in the Settings tab after launch." -ForegroundColor DarkGray
+        Write-Host "   Chemins personnalisables dans l'onglet Paramètres après le lancement." -ForegroundColor DarkGray
+        PressAnyKey
         exit 1
     }
 }
 
 # ================================================================
-# ETAPE 3 - DEPENDANCES
+# STEP 3 - DEPENDENCIES
 # ================================================================
 Clear-Host
-Section "Etape 3 / 3   Dependances Node.js  /  Node.js dependencies"
+Section "Step 3/3   Node.js dependencies  /  Dépendances Node.js"
 
 Push-Location $ROOT
 
 if (-not (Test-Path "node_modules")) {
-    Warn "Installation des paquets (premiere fois, patience...)  /  Installing..."; Blank
+    Warn "Installing packages (first time, please wait...)  /  Installation des paquets (première fois, patience...)"; Blank
     & pnpm install
-    if ($LASTEXITCODE -ne 0) { Pop-Location; Die "pnpm install a echoue. / pnpm install failed." }
-    Blank; OK "Dependances installees  /  Dependencies installed"
+    if ($LASTEXITCODE -ne 0) { Pop-Location; Die "pnpm install failed.  /  a échoué." }
+    Blank; OK "Dependencies installed  /  Dépendances installées"
 } else {
-    OK "Dependances presentes  /  Dependencies ready"
+    OK "Dependencies ready  /  Dépendances présentes"
 }
 
 # ================================================================
 # BUILD
 # ================================================================
 Blank; Sep
-Write-Host "   Compilation de l'interface  /  Building the interface..." -ForegroundColor Magenta
+Write-Host "   Building the interface...  /  Compilation de l'interface..." -ForegroundColor Magenta
 Sep; Blank
 
 & pnpm --filter frontend build
-if ($LASTEXITCODE -ne 0) { Pop-Location; Die "La compilation a echoue. / Build failed." }
+if ($LASTEXITCODE -ne 0) { Pop-Location; Die "Build failed.  /  La compilation a échoué." }
 
 # ================================================================
-# LANCEMENT
+# LAUNCH
 # ================================================================
-Banner "   Tout est pret !   /   All set !                        " "Green"
+Banner "All set!   /   Tout est prêt !" "Green"
 
+Write-Host "   Your browser will open in a few seconds." -ForegroundColor White
 Write-Host "   Le navigateur va s'ouvrir dans quelques secondes." -ForegroundColor DarkGray
-Write-Host "   Your browser will open in a few seconds." -ForegroundColor DarkGray
 Blank
-Write-Host "   Ferme cette fenetre pour arreter le serveur." -ForegroundColor DarkGray
-Write-Host "   Close this window to stop the server." -ForegroundColor DarkGray
+Write-Host "   Close this window to stop the server." -ForegroundColor White
+Write-Host "   Ferme cette fenêtre pour arrêter le serveur." -ForegroundColor DarkGray
 Blank; Sep; Blank
 
-# Tuer instance Node precedente sur port 3000
+# Kill any previous Node instance on port 3000
 $conn = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue
 if ($conn) {
     $proc = Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue
     if ($proc -and $proc.Name -eq "node") {
         Stop-Process -Id $conn.OwningProcess -Force
-        Write-Host "   Instance precedente arretee. / Previous instance stopped." -ForegroundColor DarkGray
+        Write-Host "   Previous instance stopped.  /  Instance précédente arrêtée." -ForegroundColor DarkGray
     } elseif ($proc) {
-        Write-Host "   Port 3000 utilise par : $($proc.Name) - autre port sera utilise." -ForegroundColor DarkGray
+        Write-Host "   Port 3000 in use by: $($proc.Name) — another port will be used." -ForegroundColor DarkGray
     }
 }
 
-# Detection des outils
+# Tool detection
 & node "apps\backend\scripts\detect-tools.js" 2>$null
 
-# Watcher .port -> ouvre le navigateur
+# Watch .port file -> open browser
 $portFile = Join-Path $ROOT ".port"
 if (Test-Path $portFile) { Remove-Item $portFile -Force }
 
 $watcher = Start-Job -ScriptBlock {
-    param($pf)
+    param($pf, $lang)
     while (-not (Test-Path $pf)) { Start-Sleep -Milliseconds 500 }
     $p = (Get-Content $pf).Trim()
-    Start-Process "http://localhost:$p"
-} -ArgumentList $portFile
+    Start-Process "http://localhost:$p/?lang=$lang"
+} -ArgumentList $portFile, $LANG
 
-# Demarrage du serveur
+# Start the server
 & pnpm start
 
-# Nettoyage
+# Cleanup
 Stop-Job  $watcher -ErrorAction SilentlyContinue | Out-Null
 Remove-Job $watcher -ErrorAction SilentlyContinue | Out-Null
 if (Test-Path $portFile) { Remove-Item $portFile -Force }
 Pop-Location
 
 Blank; Sep
-Write-Host "   Serveur arrete normalement.  /  Server stopped normally." -ForegroundColor Green
+Write-Host "   Server stopped normally.  /  Serveur arrêté normalement." -ForegroundColor Green
 Sep; Blank
-Read-Host "   Appuie sur Entree pour fermer  /  Press Enter to close" | Out-Null
+PressAnyKey
