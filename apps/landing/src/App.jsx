@@ -31,8 +31,8 @@ const T = {
         desc: "16 workers HLS en parallèle. 10h34 de live en 9 minutes. 65 MB/s de débit moyen sur le benchmark.",
       },
       {
-        title: "Bypass Twitch",
-        desc: "Téléchargez les VODs sub-only sans abonnement via reconstruction directe des URLs CloudFront.",
+        title: "Twitch natif",
+        desc: "Téléchargement direct des VODs, highlights et clips Twitch sans dépendance tierce.",
       },
       {
         title: "100 % local",
@@ -46,7 +46,7 @@ const T = {
     platformsLabel: "Compatibilité",
     platformsTitle: "3 PLATEFORMES SUPPORTÉES",
     platforms: [
-      { desc: "Bypass sub-only inclus. Qualité source jusqu'à 2K." },
+      { desc: "VODs · Highlights · Clips. Qualité source jusqu'à 2K." },
       { desc: "Toutes qualités jusqu'à 4K. yt-dlp natif." },
       { desc: "Support complet via yt-dlp." },
     ],
@@ -86,8 +86,8 @@ const T = {
         desc: "16 parallel HLS workers. 10h34 of live in 9 minutes. 65 MB/s average throughput on benchmark.",
       },
       {
-        title: "Twitch bypass",
-        desc: "Download subscriber-only VODs without a subscription by reconstructing CloudFront URLs directly.",
+        title: "Native Twitch",
+        desc: "Direct download of Twitch VODs, highlights and clips with no third-party dependency.",
       },
       {
         title: "100% local",
@@ -101,7 +101,7 @@ const T = {
     platformsLabel: "Compatibility",
     platformsTitle: "3 SUPPORTED PLATFORMS",
     platforms: [
-      { desc: "Sub-only bypass included. Source quality up to 2K." },
+      { desc: "VODs · Highlights · Clips. Source quality up to 2K." },
       { desc: "All qualities up to 4K. Native yt-dlp." },
       { desc: "Full support via yt-dlp." },
     ],

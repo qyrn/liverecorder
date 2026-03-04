@@ -39,7 +39,6 @@ function Warn($label) {
     Write-Host "   $label" -ForegroundColor DarkGray
 }
 
-# Interior width = 51 chars (between the two | characters)
 function Banner($subtitle, $color = "Cyan") {
     Clear-Host; Blank; Blank
     Write-Host "    ___________________________________________________" -ForegroundColor DarkGray
