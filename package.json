@@ -7,8 +7,10 @@
   },
   "scripts": {
     "dev": "concurrently \"cross-env PORT=3001 pnpm --filter backend dev\" \"pnpm --filter frontend dev\"",
+    "dev:landing": "pnpm --filter landing dev",
     "start": "pnpm --filter backend start",
-    "build": "pnpm --filter frontend build"
+    "build": "pnpm --filter frontend build",
+    "build:landing": "pnpm --filter landing build"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
